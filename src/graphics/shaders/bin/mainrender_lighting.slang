@@ -99,36 +99,36 @@ float ggxDist(float nh, float roughness) {
     return alpha2 / denom;
 }
 
-float schlickGgxGeometryTerm(float nv, float roughness) {
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
+float heightCorrelatedSmithVisibilityTerm(float nv, float nl, float roughness) {
+    float alpha = roughness * roughness;
 
-    float denom = nv * (1.0 - k) + k;
-    return nv / denom;
-}
+    float lambdav = nl * sqrt(alpha + (1.0f - alpha) * nv * nv);
+    float lambdal = nv * sqrt(alpha + (1.0f - alpha) * nl * nl);
 
-float smithGeometryTerm(float nv, float nl, float roughness) {
-    return schlickGgxGeometryTerm(nv, roughness) * schlickGgxGeometryTerm(nl, roughness);
+    return 0.5f / max(lambdav + lambdal, 0.0001f);
 }
 
 float3 brdf(float3 norm, float3 viewdir, float3 lightdir, float nl, float3 albedo, float metallic, float roughness) {
+    float3 f0 = lerp(float3(0.04), albedo, metallic);
+
     float3 halfvec = normalize(viewdir + lightdir);
     float  nv = max(dot(norm, viewdir), 0.0001);
-
-    float3 f0 = lerp(float3(0.04), albedo, metallic);
     float  nh = max(dot(norm, halfvec), 0.0);
     float  vh = max(dot(viewdir, halfvec), 0.0);
     float  lh = max(dot(lightdir, halfvec), 0.0);
 
-    float  ndf = ggxDist(nh, roughness);
-    float  g = smithGeometryTerm(nv, nl, roughness);
-    float3 f = fresnelSchlick(vh, f0);
+    // ---- for f_CT = DGF / (4 * nv * nl) ---------------------------------------------------------------------------------------------------------------------
+    float  ndf  = ggxDist(nh, roughness);
+    float  gvis = heightCorrelatedSmithVisibilityTerm(nv, nl, roughness); // = D / (4 * nv * nl)
+    float3 f    = fresnelSchlick(vh, f0);
+    float3 specular = (ndf * gvis * f);
 
+    // ---- Energy terms ---------------------------------------------------------------------------------------------------------------------------------------
     float3 kS = f;
     float3 kD = (float3(1.0) - kS) * (1.0 - metallic);
 
-    float3 specular = (ndf * g * f) / (4.0 * nv * nl + 0.0001);
-    float  fd90 = 0.5 + 2.0 * lh * lh * roughness;
+    // ---- Diffuse term ---------------------------------------------------------------------------------------------------------------------------------------
+    float fd90 = 0.5 + 2.0 * lh * lh * roughness;
 
     float lightScatter = 1.0 + (fd90 - 1.0) * pow(1.0 - nl, 5);
     float viewScatter = 1.0 + (fd90 - 1.0) * pow(1.0 - nv, 5);
