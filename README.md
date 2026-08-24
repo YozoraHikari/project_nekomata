@@ -71,7 +71,7 @@ If you generate makefiles instead of a build.ninja file, add `-j(number of cores
 
 ## License
 
-Copyright (c) 2026 YozoraHoshikuzu
+Copyright (c) 2026 YozoraHikari
 
 This project is licensed under the Apache 2.0 license. See the LICENSE file for more information.
 
