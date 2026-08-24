@@ -46,7 +46,7 @@ static_assert(CVulkanImage<SwapchainImage> && "SwapchainImage must satisfy CVulk
 class VulkanSwapchain {
 public:
     VulkanSwapchain(std::nullptr_t);
-    VulkanSwapchain(vk::raii::SwapchainKHR&& swapchain, vk::Extent2D swapchainImageExtent, Vec<SwapchainImage>&& swapchainImages);
+    VulkanSwapchain(vk::raii::SwapchainKHR&& swapchain, vk::Extent2D swapchainImageExtent, bool hasVsync, Vec<SwapchainImage>&& swapchainImages);
 
     static auto create(vk::Extent2D windowDrawableExtent, Option<VulkanSwapchain>&& oldSwapchain, bool vsyncEnable) -> VulkanSwapchain;
 
@@ -59,10 +59,12 @@ public:
     [[nodiscard]] auto imageAtIndex(u32 index) -> SwapchainImage& { return m_vkSwapchainImages[index]; }
 
     [[nodiscard]] auto vkSwapchain() const -> const vk::raii::SwapchainKHR& { return m_vkSwapchain.vkHandle(); }
+    [[nodiscard]] auto hasVsync() const -> bool { return m_hasVsync; }
 
 private:
     VulkanAsyncRaiiWrapper<vk::raii::SwapchainKHR> m_vkSwapchain = nullptr;
     vk::Extent2D m_swapchainImageExtent;
+    bool m_hasVsync = false;
     Vec<SwapchainImage> m_vkSwapchainImages = Vec<SwapchainImage>::create();
 };
 

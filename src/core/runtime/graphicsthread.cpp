@@ -14,10 +14,12 @@ RenderThread::RenderThread(const std::shared_ptr<MRThreadsSharedData>& mrSharedD
         m_currentWindowExtent = mrSharedData->m_leafs.getSecondary().m_currentWindowExtent;
     }
 
+static auto& cvRdVsync = CvarManager::get().registerCvar<bool>("rd.vsync", false);
+
 auto RenderThread::runMainLoop() -> void {
     gfx::vkrhi::VulkanCommandPoolsList::initThreadLocalCommandPools();
 
-    m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, None, false);
+    m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, None, cvRdVsync.get());
     // TODO : remove the abuse
     std::construct_at(&m_sharedRenderingResources);
     m_transientRenderingResources = gfx::TransientRenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
@@ -70,13 +72,14 @@ auto RenderThread::loop() -> void {
     gfx::MeshAssetStorage::get().tickGC(m_currentFrameNumber);
 
     auto maybeNewWindowExtent = m_mrSharedData->m_leafs.getSecondary().m_currentWindowExtent;
-    if (m_mustRecreateSwapchainNextFrame || m_currentWindowExtent != maybeNewWindowExtent) {
+    auto vsyncStatusChanged = cvRdVsync.get() != m_vkSwapchain.hasVsync();
+    if (m_mustRecreateSwapchainNextFrame || m_currentWindowExtent != maybeNewWindowExtent || vsyncStatusChanged) {
         m_currentWindowExtent = maybeNewWindowExtent;
         m_mustRecreateSwapchainNextFrame = false;
 
         // TODO: This is to work around present queues not being friendly to synchronize
         gfx::vkrhi::VulkanContext::get().vkDevice().waitIdle();
-        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(m_vkSwapchain)), false);
+        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(m_vkSwapchain)), cvRdVsync.get());
         m_transientRenderingResources.handleWindowSizeChange(m_currentWindowExtent);
     }
 

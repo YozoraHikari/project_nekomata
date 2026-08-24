@@ -19,7 +19,8 @@ static constexpr auto PRESENT_MODE_PRIORITY_VSYNC = StaticSlice<const vk::Presen
 static constexpr auto PRESENT_MODE_PRIORITY_NO_VSYNC = StaticSlice<const vk::PresentModeKHR>::inst<vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eImmediate, vk::PresentModeKHR::eFifoRelaxed, vk::PresentModeKHR::eFifo>();
 
 VulkanSwapchain::VulkanSwapchain(std::nullptr_t) {}
-VulkanSwapchain::VulkanSwapchain(vk::raii::SwapchainKHR&& swapchain, vk::Extent2D swapchainImageExtent, Vec<SwapchainImage>&& swapchainImages) : m_vkSwapchain(std::move(swapchain)), m_swapchainImageExtent(swapchainImageExtent), m_vkSwapchainImages(std::move(swapchainImages)) {}
+VulkanSwapchain::VulkanSwapchain(vk::raii::SwapchainKHR&& swapchain, vk::Extent2D swapchainImageExtent, bool hasVsync, Vec<SwapchainImage>&& swapchainImages)
+    : m_vkSwapchain(std::move(swapchain)), m_swapchainImageExtent(swapchainImageExtent), m_hasVsync(hasVsync), m_vkSwapchainImages(std::move(swapchainImages)) {}
 
 auto VulkanSwapchain::create(vk::Extent2D windowDrawableExtent, Option<VulkanSwapchain>&& oldSwapchain, bool vsyncEnable) -> VulkanSwapchain {
     auto surfaceProps = VulkanPhysicalDeviceSurfaceProperties::query(VulkanContext::get().vkPhysicalDevice(), VulkanContext::get().vkSurface());
@@ -79,7 +80,7 @@ auto VulkanSwapchain::create(vk::Extent2D windowDrawableExtent, Option<VulkanSwa
         .map([&](auto&& img) { return SwapchainImage::from(img, imageExtent, surfaceFormat.format); })
         .collect<Vec>();
 
-    return VulkanSwapchain(std::move(swapchain), imageExtent, std::move(swapchainImages));
+    return VulkanSwapchain(std::move(swapchain), imageExtent, vsyncEnable, std::move(swapchainImages));
 }
 
 auto VulkanSwapchain::acquireNextImage(u64 timeoutNanos, const VulkanBinarySemaphore& imageAcquireSemaphore) -> std::pair<Option<u32>, bool> {
