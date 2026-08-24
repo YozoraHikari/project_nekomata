@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.vk_query_pool;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanQueryPool::VulkanQueryPool(std::nullptr_t) {}
 VulkanQueryPool::VulkanQueryPool(vk::raii::QueryPool&& vkQueryPool, u32 queryCount) : m_vkQueryPool(std::move(vkQueryPool)), m_queryCount(queryCount) {}
@@ -16,4 +16,4 @@ auto VulkanQueryPool::create(vk::QueryType qtype, u32 qcount, vk::QueryPipelineS
     return VulkanQueryPool(std::move(handle), qcount);
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

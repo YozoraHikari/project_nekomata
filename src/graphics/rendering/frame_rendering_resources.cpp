@@ -8,42 +8,78 @@ import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.rendering.frame_rendering_resources;
 import :graphics.shaders.globallayout;
 
-namespace projnekomata::graphics {
+namespace projnekomata::gfx {
 
 FrameRenderingResources::FrameRenderingResources(std::nullptr_t) {  }
 
-
 FrameRenderingResources::FrameRenderingResources(u32 initialMaxObjects) {
-    m_commandPool = VulkanCommandPool::createForGraphics(true);
+    m_commandPool = vkrhi::VulkanCommandPool::createForGraphics(true);
     m_commandBuffer = m_commandPool.allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
 
+    auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
+    m_transformsBuffer = vkrhi::VulkanBuffer::builder()
+        .len(initialMaxObjects * sizeof(Transforms))
+        .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+        .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+        .build();
 
-    auto queuesForBuffer = VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics];
-    m_transformsBuffer = VulkanBuffer::create(initialMaxObjects * 2048, vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
-    m_globalDataBuffer = VulkanBuffer::create(sizeof(ShGlobalData), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
-    m_pointlightsBuffer = VulkanBuffer::create(1024 * sizeof(PointlightData), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
+    m_globalDataBuffer = vkrhi::VulkanBuffer::builder()
+        .len(sizeof(ShGlobalData))
+        .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+        .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+        .build();
 
-    m_frameDoneFence = VulkanFence::create(true);
-    m_imageAcquiredSemaphore = VulkanBinarySemaphore::create();
+    m_pointlightsBuffer = vkrhi::VulkanBuffer::builder()
+        .len(1024 * sizeof(PointlightData))
+        .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+        .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+        .build();
+
+    m_frameDoneFence = vkrhi::VulkanFence::create(true);
+    m_imageAcquiredSemaphore = vkrhi::VulkanBinarySemaphore::create();
 }
 
-auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingData, SharedRenderingResources& sharedRendResources, ecs::components::Camera camera, const ecs::components::Transform& cameraTransform, float renderAspectRatio, u64 frameIndex) -> void {
+auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingData, SharedRenderingResources& sharedRendResources, CameraComponent camera, const WorldTransformComponent& cameraTransform, float renderAspectRatio, u64 frameIndex) -> void {
     auto projectionMatrix = camera.computeProjectionMatrix(renderAspectRatio);
-    auto cameraModelMatrix = cameraTransform.m_transform3d.computeModelMatrix();
-    auto viewMatrix = cameraModelMatrix.inverse().unwrapOr(math::Matrix4x4f::identity());
+    auto projInverse = projectionMatrix.inverse().unwrapOr(Matrix4x4f::identity());
+    auto& cameraModelMatrix = cameraTransform.m_transform;
+    auto viewMatrix = cameraModelMatrix.inverseRigid();
     auto viewportSize = Vector2f(renderingData.m_currentWindowExtent.width, renderingData.m_currentWindowExtent.height);
 
-    auto queuesForBuffer = VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics];
+    auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     // ---- Shader Resource Table Handles ----------------------------------------------------------------------------------------------------------------------
 
     auto srtImageHandlesData = renderingData.m_textureToImageShaderIndexSnapshot.asSlice();
     auto srtSamplerHandlesData = renderingData.m_textureToSamplerShaderIndexSnapshot.asSlice();
     if (m_textureToSrtImageIDBuffer.vkBuffer() == nullptr || m_textureToSrtImageIDBuffer.size() < srtImageHandlesData.len() * sizeof(u32)) {
-        m_textureToSrtImageIDBuffer = VulkanBuffer::create(srtImageHandlesData.len() * sizeof(u32), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
+        m_textureToSrtImageIDBuffer = vkrhi::VulkanBuffer::builder()
+            .len(srtImageHandlesData.len() * sizeof(u32))
+            .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+            .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+            .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+            .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+            .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+            .build();
     }
 
     if (m_textureToSrtSamplerIDBuffer.vkBuffer() == nullptr || m_textureToSrtSamplerIDBuffer.size() < srtSamplerHandlesData.len() * sizeof(u32)) {
-        m_textureToSrtSamplerIDBuffer = VulkanBuffer::create(srtSamplerHandlesData.len() * sizeof(u32), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
+        m_textureToSrtSamplerIDBuffer = vkrhi::VulkanBuffer::builder()
+            .len(srtSamplerHandlesData.len() * sizeof(u32))
+            .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+            .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+            .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+            .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+            .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+            .build();
     }
 
     memcpy(m_textureToSrtImageIDBuffer.memoryHostPtr(), srtImageHandlesData.data(), srtImageHandlesData.len() * sizeof(u32));
@@ -54,9 +90,25 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
     for (auto& [size, heapdata] : renderingData.m_materialHeapSnapshotsBySize.iter()) {
         // make sure we have an appropriate size buffer first:
         if (!m_materialPropBuffersBySize.contains(size)) {
-            m_materialPropBuffersBySize.insert(size, VulkanBuffer::create(heapdata.len(), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer));
+            auto buffer = vkrhi::VulkanBuffer::builder()
+                .len(heapdata.len())
+                .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+                .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+                .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+                .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+                .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+                .build();
+
+            m_materialPropBuffersBySize.insert(size, std::move(buffer));
         } else if (m_materialPropBuffersBySize[size].size() < heapdata.len()) {
-            m_materialPropBuffersBySize[size] = VulkanBuffer::create(heapdata.len(), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible, queuesForBuffer);
+            m_materialPropBuffersBySize[size] = vkrhi::VulkanBuffer::builder()
+                .len(heapdata.len())
+                .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+                .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+                .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+                .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+                .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+                .build();
         }
 
         memcpy(m_materialPropBuffersBySize[size].memoryHostPtr(), heapdata.data(), heapdata.len());
@@ -69,7 +121,7 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
 
         auto modelMatrix = math::Matrix4x4f::identity();
         if (renderingData.m_transforms.containsEntity(entSparseIndex)) {
-            modelMatrix = renderingData.m_transforms.get(entSparseIndex).m_transform3d.computeModelMatrix();
+            modelMatrix = renderingData.m_transforms.get(entSparseIndex).m_transform;
         }
 
         auto normalMatrixPrec = Matrix3x3f({
@@ -96,7 +148,8 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
 
         auto position = Vector3f(0.0f);
         if (renderingData.m_transforms.containsEntity(entSparseIndex)) {
-            position = renderingData.m_transforms.get(entSparseIndex).m_transform3d.m_position;
+            auto& matrix = renderingData.m_transforms.get(entSparseIndex).m_transform;
+            position = matrix.decomposePosition();
         }
 
         auto pointlightData = PointlightData {
@@ -128,25 +181,27 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
     camModelMatrixNoTranslation[0, 3] = 0.0f;
     camModelMatrixNoTranslation[1, 3] = 0.0f;
     camModelMatrixNoTranslation[2, 3] = 0.0f;
-    auto viewMatrixNoTranslation = camModelMatrixNoTranslation.inverse().unwrapOr(Matrix4x4f::identity());
+    auto viewMatrixNoTranslation = camModelMatrixNoTranslation.inverseRigid();
 
     auto projviewNoTranslation = projectionMatrix * viewMatrixNoTranslation;
-    auto projviewNoTranslationInverse = projviewNoTranslation.inverse().unwrapOr(Matrix4x4f::identity());
+    auto projviewNoTranslationInverse = camModelMatrixNoTranslation * projInverse;
+
+    auto cameraPos = cameraModelMatrix.decomposePosition();
 
     auto globdata = ShGlobalData {
         .jitteredProjview = jitteredProjview,
         .projview = projview,
         .prevProjview = sharedRendResources.m_lastProjview,
         .prevProjviewNoTranslation = sharedRendResources.m_lastProjviewNoTranslation,
-        .projviewInverse = projview.inverse().unwrapOr(Matrix4x4f::identity()),
+        .projviewInverse = cameraModelMatrix * projInverse,
         .projviewNoTranslationInverse = projviewNoTranslationInverse,
-        .cameraPos = cameraTransform.m_transform3d.m_position,
+        .cameraPos = cameraPos,
         .frameIndex = static_cast<u32>(frameIndex)
     };
-    sharedRendResources.m_lastProjview = projview;
+    sharedRendResources.m_lastProjview = jitteredProjview;
     sharedRendResources.m_lastProjviewNoTranslation = projviewNoTranslation;
 
     memcpy(m_globalDataBuffer.memoryHostPtr(), &globdata, sizeof(ShGlobalData));
 }
 
-} // namespace projnekomata::graphics
+} // namespace projnekomata

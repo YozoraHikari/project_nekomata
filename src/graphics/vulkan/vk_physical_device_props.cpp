@@ -7,7 +7,7 @@ import :core.overloaded;
 
 using namespace std::literals;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 using VulkanFeaturePtr = FlatVariant<
     vk::Bool32 vk::PhysicalDeviceFeatures::*,
@@ -53,7 +53,6 @@ template <typename T> constexpr auto emptyArray() { return std::array<T, 0>{}; }
 
 static constexpr auto kRequiredPhysicalDeviceExtensions = std::to_array<RequiredExtensionRule>({
     { vk::KHRSwapchainExtensionName, PhysicalDevicePropertyQueryErrorKind::MissingKhrSwapchain },
-    { vk::EXTImageViewMinLodExtensionName, PhysicalDevicePropertyQueryErrorKind::MissingExtImageViewMinLod },
 });
 
 static constexpr auto kRequiredPhysicalDeviceFeatures = std::to_array<RequiredFeatureRule>({
@@ -267,12 +266,6 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
             return Err(PhysicalDevicePropertyQueryError{.m_kind = rule.m_errorKindIfMissing});
     }
 
-    // TODO: refactor
-    if (!featuresQuery.get<vk::PhysicalDeviceImageViewMinLodFeaturesEXT>().minLod) {
-        return Err(PhysicalDevicePropertyQueryError{.m_kind = PhysicalDevicePropertyQueryErrorKind::MissingExtImageViewMinLod});
-    }
-
-
     // ---------------------------------------------------------------------------------------------------------------------------------------------------------
     // Check for availability of optional features
 
@@ -485,4 +478,4 @@ auto VulkanPhysicalDeviceSurfaceProperties::query(const vk::raii::PhysicalDevice
     return props;
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

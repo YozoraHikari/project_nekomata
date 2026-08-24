@@ -1,7 +1,7 @@
 export module projnekomata:graphics.vulkan.vk_gpu_obrm_structs;
 import projnekomata.cs;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 struct GpuResourceRetireTimelineValues {
     u64 m_graphicsQueueRetireValue = 0;
@@ -16,4 +16,4 @@ struct GpuResourceRetireTimelineValues {
     static auto queueCurrentValues() -> GpuResourceRetireTimelineValues;
 };
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

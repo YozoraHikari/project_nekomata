@@ -67,9 +67,9 @@ private:
 
 export template <typename T> class StaticSlice : public Slice<T> {
 public:
-    template <T... Values> constexpr static auto inst() noexcept -> Slice<T> {
+    template <T... Values> constexpr static auto inst() noexcept -> Slice<const T> {
         static constexpr T values[] = { Values... };
-        return Slice<T>(values, sizeof...(Values));
+        return Slice<const T>(static_cast<const T*>(values), sizeof(values) / sizeof(T));
     }
 };
 

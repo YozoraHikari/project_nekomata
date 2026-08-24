@@ -2,14 +2,15 @@ module projnekomata;
 import projnekomata.cs;
 import :graphics.vulkan.spv_shader_code;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 SpirvShaderCode::SpirvShaderCode(std::nullptr_t) {}
 SpirvShaderCode::SpirvShaderCode(Vec<u32>&& spvCode) : m_spvCode(std::move(spvCode)) {}
 
-auto SpirvShaderCode::loadFromFile(const std::filesystem::path& path) -> Result<SpirvShaderCode, ShaderLoadError> {
+auto SpirvShaderCode::loadFromFile(const fs::Path& path) -> Result<SpirvShaderCode, ShaderLoadError> {
     log::info("loading file: {}", path.string());
-    std::ifstream shaderCodeFile(path, std::ios::binary | std::ios::ate);
+    auto resolvedPath = fs::PathResolver::resolve(path);
+    std::ifstream shaderCodeFile(resolvedPath, std::ios::binary | std::ios::ate);
     if (!shaderCodeFile) {
         log::crit("Failed to read shader SPIR-V code at {}: cannot access file", path.string());
         return Err(ShaderLoadError::FileLoadingError);

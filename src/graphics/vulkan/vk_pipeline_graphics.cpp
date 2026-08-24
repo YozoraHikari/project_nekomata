@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.vk_pipeline_graphics;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(std::nullptr_t) {}
 VulkanGraphicsPipeline::VulkanGraphicsPipeline(vk::raii::Pipeline&& vkPipeline) : m_vkPipeline(std::move(vkPipeline)) {}

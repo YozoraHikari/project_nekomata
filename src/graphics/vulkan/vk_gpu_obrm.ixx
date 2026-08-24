@@ -4,7 +4,7 @@ import vulkan;
 import :graphics.vulkan.deletion_queue;
 import :graphics.vulkan.vk_gpu_obrm_structs;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 template <typename T>
 concept AnyVulkanRaiiHandle = requires {
@@ -56,4 +56,4 @@ extern template class VulkanAsyncRaiiWrapper<vk::raii::Sampler>;
 extern template class VulkanAsyncRaiiWrapper<vk::raii::QueryPool>;
 
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

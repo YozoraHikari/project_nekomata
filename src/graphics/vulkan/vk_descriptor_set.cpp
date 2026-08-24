@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.vk_descriptor_set;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanDescriptorSet::VulkanDescriptorSet(std::nullptr_t) {  }
 VulkanDescriptorSet::VulkanDescriptorSet(vk::raii::DescriptorSet&& vkDescriptorSet)
@@ -13,4 +13,4 @@ VulkanDescriptorSet::~VulkanDescriptorSet() {
     }
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

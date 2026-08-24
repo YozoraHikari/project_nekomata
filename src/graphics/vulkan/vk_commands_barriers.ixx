@@ -5,7 +5,7 @@ import vulkan;
 import :graphics.vulkan.vk_image_trait;
 import :graphics.vulkan.vk_commands;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanPipelineBarriers {
 public:

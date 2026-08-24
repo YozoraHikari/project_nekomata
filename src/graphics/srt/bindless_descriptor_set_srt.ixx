@@ -12,13 +12,13 @@ import :graphics.vulkan.vk_sampler;
 import :graphics.vulkan.vk_pipeline_layout;
 import :core.containers.abia;
 
-export namespace projnekomata::graphics::srt {
+export namespace projnekomata::gfx {
 
 class BindlessDescriptorSetShaderResourceTable : public IShaderResourceTable {
 public:
     BindlessDescriptorSetShaderResourceTable(std::nullptr_t);
-    BindlessDescriptorSetShaderResourceTable(VulkanDescriptorPool&& descriptorPool, VulkanDescriptorSetLayout&& descriptorSetLayout,
-        VulkanDescriptorSet&& descriptorSet, u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount);
+    BindlessDescriptorSetShaderResourceTable(vkrhi::VulkanDescriptorPool&& descriptorPool, vkrhi::VulkanDescriptorSetLayout&& descriptorSetLayout,
+        vkrhi::VulkanDescriptorSet&& descriptorSet, u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount);
 
     static auto create(u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount) -> Unique<BindlessDescriptorSetShaderResourceTable>;
 
@@ -37,20 +37,20 @@ public:
     auto allocateSamplerIndex() -> SRTResourceIndex override;
     auto allocateSamplerIndices(u32 count, Slice<SRTResourceIndex> dstIndices) -> void override;
 
-    auto bindSampledImage(const VulkanImage& image, SRTResourceIndex index) -> void override;
-    auto bindSampledImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void override;
-    auto bindStorageImage(const VulkanImage& image, SRTResourceIndex index) -> void override;
-    auto bindStorageImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void override;
-    auto bindSampler(const VulkanSampler& sampler, SRTResourceIndex index) -> void override;
+    auto bindSampledImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void override;
+    auto bindSampledImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void override;
+    auto bindStorageImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void override;
+    auto bindStorageImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void override;
+    auto bindSampler(const vkrhi::VulkanSampler& sampler, SRTResourceIndex index) -> void override;
 
-    auto bindToCommandBuffer(const VulkanCommandBuffer& cmd, const VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void override;
+    auto bindToCommandBuffer(const vkrhi::VulkanCommandBuffer& cmd, const vkrhi::VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void override;
 
-    auto descriptorSetLayout() const -> const VulkanDescriptorSetLayout& override;
+    auto descriptorSetLayout() const -> const vkrhi::VulkanDescriptorSetLayout& override;
 
 private:
-    VulkanDescriptorPool      m_descriptorPool = nullptr;
-    VulkanDescriptorSetLayout m_descriptorSetLayout = nullptr;
-    VulkanDescriptorSet       m_descriptorSet = nullptr;
+    vkrhi::VulkanDescriptorPool      m_descriptorPool = nullptr;
+    vkrhi::VulkanDescriptorSetLayout m_descriptorSetLayout = nullptr;
+    vkrhi::VulkanDescriptorSet       m_descriptorSet = nullptr;
 
     // ---------------------------------------------------------------------------------------------------------------------------------------------------------
     // Allocators

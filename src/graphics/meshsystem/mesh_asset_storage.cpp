@@ -4,7 +4,7 @@ import :graphics.vulkan.context;
 import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.meshsystem.mesh_asset_storage;
 
-namespace projnekomata::meshsystem {
+namespace projnekomata::gfx {
 
 auto MeshAssetStorage::makeMeshPoolConfig() -> MeshPoolConfig {
     MeshPoolConfig poolConfig{};
@@ -12,7 +12,7 @@ auto MeshAssetStorage::makeMeshPoolConfig() -> MeshPoolConfig {
     poolConfig.defaultDeferFrames = 4;
     poolConfig.maxSlabCount = 16;
     poolConfig.slabSize = 16 * 1024 * 1024;
-    poolConfig.queueFamilyIndices = VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics | QueueFamily::AsyncCompute];
+    poolConfig.queueFamilyIndices = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute];
     return poolConfig;
 }
 

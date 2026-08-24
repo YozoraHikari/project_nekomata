@@ -2,7 +2,7 @@ module projnekomata;
 import projnekomata.cs;
 import :graphics.vulkan.context;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanResourceDeletionQueue::~VulkanResourceDeletionQueue() {
     VulkanContext::get().vkQueueGraphics().waitIdle();

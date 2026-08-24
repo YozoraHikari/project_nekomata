@@ -121,7 +121,7 @@ float3 brdf(float3 norm, float3 viewdir, float3 lightdir, float nl, float3 albed
     float  ndf  = ggxDist(nh, roughness);
     float  gvis = heightCorrelatedSmithVisibilityTerm(nv, nl, roughness); // = D / (4 * nv * nl)
     float3 f    = fresnelSchlick(vh, f0);
-    float3 specular = (ndf * gvis * f);
+    float3 specular = ndf * gvis * f;
 
     // ---- Energy terms ---------------------------------------------------------------------------------------------------------------------------------------
     float3 kS = f;

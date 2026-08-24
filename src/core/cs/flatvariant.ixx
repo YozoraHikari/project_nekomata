@@ -1,13 +1,16 @@
 export module projnekomata.cs:flatvariant;
 import std;
 import :primitives;
+import :log;
 
 export template <typename... Ts> class FlatVariant {
 public:
     static constexpr usize kSize = std::max({sizeof(Ts)...});
     static constexpr usize kAlignment = std::max({alignof(Ts)...});
 
-    template <typename T> constexpr FlatVariant(T value) : m_index(indexOfT<std::decay_t<T>>()) {
+    template <typename T> constexpr FlatVariant(T value) requires (std::same_as<T, Ts> || ...)
+        : m_index(indexOfT<std::decay_t<T>>())
+    {
         new (m_storage) std::decay_t<T>(std::move(value));
     }
     constexpr ~FlatVariant() { destroyInStorage(std::index_sequence_for<Ts...>{}); }

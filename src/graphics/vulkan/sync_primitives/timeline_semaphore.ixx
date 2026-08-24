@@ -3,7 +3,7 @@ import vulkan;
 import projnekomata.cs;
 import :graphics.vulkan.vk_gpu_obrm;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanTimelineSemaphore {
 public:

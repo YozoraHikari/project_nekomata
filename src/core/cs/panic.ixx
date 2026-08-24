@@ -12,6 +12,7 @@ module;
 #endif
 export module projnekomata.cs:panic;
 import std;
+import fmt;
 import :log;
 import :primitives;
 import :thread;
@@ -56,10 +57,9 @@ void backtraceErrorCallback(void* data, const char* errorMsg, int errnum) {
 }
 #endif
 
-template<typename... Args>
 [[noreturn]]
-void panic_impl(std::source_location loc, std::string_view fmt, Args&&... args) {
-    projnekomata::log::crit("thread {} (id {}) panicked at {}:{}: {}", Thread::getThreadName(), Thread::getThreadId(), loc.file_name(), loc.line(), std::vformat(fmt, std::make_format_args(args...)));
+void panic_impl(std::source_location loc, fmt::string_view format, fmt::format_args args) {
+    projnekomata::log::crit("thread {} (id {}) panicked at {}:{}: {}", Thread::getThreadName(), Thread::getThreadId(), loc.file_name(), loc.line(), fmt::vformat(format, args));
 
 #if defined(__linux__) && defined(PROJNEKOMATA_USE_LIBBACKTRACE)
     if constexpr (kPanicPrintsStackTrace) {
@@ -88,13 +88,13 @@ void panic_impl(std::source_location loc, std::string_view fmt, Args&&... args) 
 
 export template<typename... Args>
 struct panic {
-    [[noreturn]] panic(std::string_view fmt,
+    [[noreturn]] panic(fmt::format_string<Args...> format,
           Args&&... args,
           std::source_location loc = std::source_location::current())
     {
-        panic_impl(loc, fmt, std::forward<Args>(args)...);
+        panic_impl(loc, format.get(), fmt::make_format_args(args...));
     }
 };
 
 export template<typename... Args>
-[[noreturn]] panic(std::string_view, Args&&...) -> panic<Args...>;
+[[noreturn]] panic(fmt::format_string<Args...>, Args&&...) -> panic<Args...>;

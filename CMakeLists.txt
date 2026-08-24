@@ -6,9 +6,11 @@ project(project_nekomata VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;DebugSanitize" CACHE STRING "" FORCE)
 
+
 add_compile_options(
         -fno-exceptions
         -fno-plt
+        -fexperimental-library
 
         -fno-math-errno
         -fno-trapping-math
@@ -323,5 +325,18 @@ foreach(BINARY_ENTRY ${project_nekomata_BINARIES})
                 -Werror=overloaded-virtual
 
                 -Werror=tautological-compare
+        )
+
+        set(MANIFEST_FILE "$<TARGET_FILE_DIR:${BINARY_ENTRY_NAME}>/${BINARY_ENTRY_NAME}.manifest")
+
+        add_custom_command(
+                TARGET ${BINARY_ENTRY_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E echo "// This file is automatically @generated, edit the relevant section in CMakeLists.txt instead during development." > "${MANIFEST_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E echo "" >> "${MANIFEST_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E echo "manifest {" >> "${MANIFEST_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E echo "    assetspath \"${CMAKE_CURRENT_SOURCE_DIR}/Assets/\"" >> "${MANIFEST_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E echo "    spirvpath \"${CMAKE_CURRENT_BINARY_DIR}/spirv/\"" >> "${MANIFEST_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E echo "}" >> "${MANIFEST_FILE}"
+                VERBATIM
         )
 endforeach()

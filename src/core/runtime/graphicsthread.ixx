@@ -21,10 +21,10 @@ public:
 private:
     auto loop() -> void;
 
-    VulkanSwapchain m_vkSwapchain = nullptr;
-    graphics::SharedRenderingResources m_sharedRenderingResources = nullptr;
-    graphics::TransientRenderingResources m_transientRenderingResources = nullptr;
-    std::array<graphics::FrameContext, MAX_FRAMES_IN_FLIGHT> m_frames = {nullptr};
+    gfx::vkrhi::VulkanSwapchain m_vkSwapchain = nullptr;
+    gfx::SharedRenderingResources m_sharedRenderingResources = nullptr;
+    gfx::TransientRenderingResources m_transientRenderingResources = nullptr;
+    std::array<gfx::FrameContext, MAX_FRAMES_IN_FLIGHT> m_frames = {nullptr};
     usize m_currentFrameContextIndex = 0;
     usize m_currentFrameNumber = 0;
 

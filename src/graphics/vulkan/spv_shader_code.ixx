@@ -2,8 +2,9 @@ export module projnekomata:graphics.vulkan.spv_shader_code;
 import std;
 import projnekomata.cs;
 import vulkan;
+import :core.fs.path_resolve;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 enum class ShaderLoadError {
     FileLoadingError,
@@ -21,7 +22,7 @@ public:
     SpirvShaderCode& operator=(const SpirvShaderCode&) = delete;
     SpirvShaderCode& operator=(SpirvShaderCode&&) = default;
 
-    static auto loadFromFile(const std::filesystem::path& path) -> Result<SpirvShaderCode, ShaderLoadError>;
+    static auto loadFromFile(const fs::Path& path) -> Result<SpirvShaderCode, ShaderLoadError>;
     [[nodiscard]] auto shaderModuleCreateInfo() const           -> vk::ShaderModuleCreateInfo;
 
     [[nodiscard]] auto spvCode() const -> Slice<const u32> { return m_spvCode.asSlice(); }

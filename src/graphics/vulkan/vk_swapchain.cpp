@@ -4,7 +4,7 @@ import :graphics.vulkan.vk_physical_device_props;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_queue_family_swizzling;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 SwapchainImage::SwapchainImage() = default;
 SwapchainImage::SwapchainImage(vk::Image image, vk::Extent2D extent, vk::Format format, VulkanBinarySemaphore&& imagePresentSemaphore) : m_vkImage(image), m_format(format), m_extent(extent), m_vkSemaphoreImagePresent(std::move(imagePresentSemaphore)) {}

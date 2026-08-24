@@ -1,7 +1,7 @@
 export module projnekomata:graphics.fontsystem.font_face;
 import projnekomata.cs;
 
-export namespace projnekomata::graphics::fonts {
+export namespace projnekomata {
 
 struct FontFace {
     u32 handleIndex;

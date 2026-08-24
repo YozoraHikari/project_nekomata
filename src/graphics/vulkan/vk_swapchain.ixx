@@ -7,7 +7,7 @@ import :graphics.vulkan.sync_primitives.binary_semaphore;
 import :graphics.vulkan.vk_image_trait;
 
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class SwapchainImage {
 public:

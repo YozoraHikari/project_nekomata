@@ -4,6 +4,8 @@ import :core.math;
 import :graphics.texturesystem.texture_manager;
 import :graphics.fontsystem.font_face;
 import :core.color;
+import :graphics.vulkan.vk_buffer;
+import :graphics.fontsystem.font_manager;
 
 export namespace projnekomata::ui {
 
@@ -18,14 +20,12 @@ struct UiTextureDrawCmd {
     math::Vector2f ssEnd;
     math::Vector2f texcoordBegin;
     math::Vector2f texcoordEnd;
-    graphics::texturesystem::Texture texture;
+    Texture texture;
 };
 
 struct UiTextDrawCmd {
     math::Vector2f ssPosition;
-    std::string text;
-    graphics::fonts::FontFace face;
-    float size;
+    Vec<GlyphInstance> glyphs;
     Color color;
 };
 

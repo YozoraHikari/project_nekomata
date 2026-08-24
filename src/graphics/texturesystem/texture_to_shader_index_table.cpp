@@ -2,7 +2,7 @@ module projnekomata;
 import projnekomata.cs;
 import :graphics.texturesystem.texture_to_shader_index_table;
 
-namespace projnekomata::graphics::texturesystem {
+namespace projnekomata::gfx {
 
 TextureToShaderIndexTable::TextureToShaderIndexTable(std::nullptr_t) {}
 TextureToShaderIndexTable::TextureToShaderIndexTable(usize maxTextureCount)
@@ -39,4 +39,5 @@ auto TextureToShaderIndexTable::snapshotTables(Vec<u32>& dstTextureToShaderImage
     }
 
 }
-} // namespace projnekomata::graphics::texturesystem
+
+} // namespace projnekomata

@@ -8,10 +8,10 @@ import :graphics.fontsystem.dynamic_font_atlas;
 import :graphics.materialsystem.mat_manager;
 import :graphics.vulkan.vk_descriptor_pool;
 
-export namespace projnekomata::graphics {
+export namespace projnekomata::gfx {
 
 struct MeshHysteresisState {
-    u32 currentLod = meshsystem::kMaxLodCount - 1;
+    u32 currentLod = kLodListMaxLodCount - 1;
 };
 
 /// Shared rendering resources house data used across all render steps.
@@ -26,69 +26,72 @@ public:
     SharedRenderingResources(std::nullptr_t);
     SharedRenderingResources();
 
+    auto checkGraphicsSettingsAndMaybeRecompileShaders() -> void;
     auto refitHysteresisStates(usize renderableSparseCount) -> void;
     auto getHysteresisState(usize renderableSparseIndex) -> MeshHysteresisState& { return m_meshHysteresisStates[renderableSparseIndex]; }
     auto getLastRenderableModelMatrix(usize renderableSparseIndex) -> math::Matrix4x4f& { return m_lastRenderableModelMatrices[renderableSparseIndex]; }
 
-
+    bool smaaShaderNeedsRecompile = false;
 
     float displayMs = 0.0f;
 
-    texturesystem::Texture m_skyCubemap = {};
-    texturesystem::Texture m_skyIrradianceCubemap = {};
-    texturesystem::Texture m_skyPrefilterCubemap = {};
-    texturesystem::Texture m_brdfLUT = {};
+    Texture m_skyCubemap = {};
+    Texture m_skyIrradianceCubemap = {};
+    Texture m_skyPrefilterCubemap = {};
+    Texture m_brdfLUT = {};
 
-    texturesystem::Texture m_smaaAreaTexture = {};
-    texturesystem::Texture m_smaaSearchTexture = {};
+    Texture m_smaaAreaTexture = {};
+    Texture m_smaaSearchTexture = {};
 
-    VulkanPipelineLayout m_iblIrradianceCubeGeneratorLayout = nullptr;
-    VulkanGraphicsPipeline m_iblIrradianceCubeGeneratorPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_iblIrradianceCubeGeneratorLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_iblIrradianceCubeGeneratorPipeline = nullptr;
 
-    VulkanPipelineLayout m_iblPrefilterCubeGeneratorLayout = nullptr;
-    VulkanGraphicsPipeline m_iblPrefilterCubeGeneratorPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_iblPrefilterCubeGeneratorLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_iblPrefilterCubeGeneratorPipeline = nullptr;
 
-    VulkanPipelineLayout m_bitmapFontRendererLayout = nullptr;
-    VulkanGraphicsPipeline m_bitmapFontRendererPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_bitmapFontRendererLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_bitmapFontRendererPipeline = nullptr;
 
-    VulkanPipelineLayout m_uiRectRendererLayout = nullptr;
-    VulkanGraphicsPipeline m_uiRectRendererPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_uiRectRendererLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_uiRectRendererPipeline = nullptr;
 
-    VulkanPipelineLayout m_uiTextureRendererLayout = nullptr;
-    VulkanGraphicsPipeline m_uiTextureRendererPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_uiTextureRendererLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_uiTextureRendererPipeline = nullptr;
 
-    VulkanPipelineLayout m_mainLightingPassLayout = nullptr;
-    VulkanGraphicsPipeline m_mainLightingPassPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_mainLightingPassLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_mainLightingPassPipeline = nullptr;
 
-    VulkanPipelineLayout m_smaaBlendWeightLayout = nullptr;
-    VulkanGraphicsPipeline m_smaaBlendWeightPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_smaaBlendWeightLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_smaaBlendWeightPipeline = nullptr;
 
-    VulkanPipelineLayout m_smaaEdgeDetectLayout = nullptr;
-    VulkanGraphicsPipeline m_smaaEdgeDetectPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_smaaEdgeDetectLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_smaaEdgeDetectPipeline = nullptr;
 
-    VulkanPipelineLayout m_smaaNeighborhoodBlendLayout = nullptr;
-    VulkanGraphicsPipeline m_smaaNeighborhoodBlendPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_smaaNeighborhoodBlendLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_smaaNeighborhoodBlendPipeline = nullptr;
 
-    VulkanPipelineLayout m_smaaTemporalResolveLayout = nullptr;
-    VulkanGraphicsPipeline m_smaaTemporalResolvePipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_smaaTemporalResolveLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_smaaTemporalResolvePipeline = nullptr;
 
-    VulkanPipelineLayout m_velbufferBgLayout = nullptr;
-    VulkanGraphicsPipeline m_velbufferBgPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_velbufferBgLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_velbufferBgPipeline = nullptr;
 
-    VulkanPipelineLayout m_quadOverdrawVisLayout = nullptr;
-    VulkanGraphicsPipeline m_quadOverdrawVisPipeline = nullptr;
+    vkrhi::VulkanPipelineLayout m_quadOverdrawVisLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_quadOverdrawVisPipeline = nullptr;
 
     math::Matrix4x4f m_lastProjview = math::Matrix4x4f::identity();
     math::Matrix4x4f m_lastProjviewNoTranslation = math::Matrix4x4f::identity();
 
 private:
+    u32 m_compiledSmaaPreset = 3;
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Hysteresis State
     Vec<MeshHysteresisState> m_meshHysteresisStates = Vec<MeshHysteresisState>::create();
     Vec<math::Matrix4x4f> m_lastRenderableModelMatrices = Vec<math::Matrix4x4f>::create();
 
+    auto buildSmaaPipelines() -> void;
     auto buildIblSecondaryCubemaps() -> void;
 };
 
-} // namespace projnekomata::graphics
+} // namespace projnekomata

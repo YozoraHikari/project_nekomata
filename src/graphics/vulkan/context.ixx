@@ -7,7 +7,7 @@ import :core.platform.sdl;
 import :graphics.vulkan.vk_physical_device_props;
 import :graphics.vulkan.vk_queue;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 template <typename T> inline auto vkCheckResult(vk::ResultValue<T> x, std::source_location loc = std::source_location::current()) {
     if (x.result != vk::Result::eSuccess) {
@@ -113,5 +113,4 @@ inline VulkanContext* g_vkContext = nullptr;
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-} // namespace projnekomata
-
+} // namespace projnekomata::gfx::vkrhi

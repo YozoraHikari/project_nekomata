@@ -12,7 +12,7 @@ import :graphics.texturesystem.texture_manager;
 import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.vulkan.context;
 
-export namespace projnekomata::graphics::rendering {
+export namespace projnekomata::gfx {
 
 class AtlasShelfPacker {
 public:
@@ -32,7 +32,7 @@ private:
 };
 
 struct AtlasGlyphKey {
-    fonts::FontFace fontFace;
+    FontFace fontFace;
     u32 pixelSize;
     u32 glyphIndex;
 
@@ -58,7 +58,7 @@ struct AtlasGlyphParams {
 
 struct DynamicBitmapFontAtlas {
     struct AtlasTexture {
-        VulkanImage image;
+        vkrhi::VulkanImage image;
         u32 imageShaderIndex;
 
         AtlasShelfPacker imagePacker;
@@ -67,22 +67,33 @@ struct DynamicBitmapFontAtlas {
     Vec<AtlasTexture> m_atlasTextures = Vec<AtlasTexture>::create();
     HashMap<AtlasGlyphKey, AtlasGlyphParams, AtlasGlyphKeyHash> m_glyphParams = HashMap<AtlasGlyphKey, AtlasGlyphParams, AtlasGlyphKeyHash>::withCapacity(64);
 
-    auto insertGlyphParam(fonts::FontFace fontFace, u32 pixelSize, u32 glyphIndex, math::Vector2f texcoordStart, math::Vector2f texcoordEnd, u32 imageShaderIndex, math::Vector2f bearing, math::Vector2f size, float advance) -> void {
+    auto insertGlyphParam(FontFace fontFace, u32 pixelSize, u32 glyphIndex, math::Vector2f texcoordStart, math::Vector2f texcoordEnd, u32 imageShaderIndex, math::Vector2f bearing, math::Vector2f size, float advance) -> void {
         m_glyphParams.insert(AtlasGlyphKey { fontFace, pixelSize, glyphIndex }, AtlasGlyphParams { texcoordStart, texcoordEnd, imageShaderIndex, bearing, size, advance });
     }
 
-    auto hasGlyphParam(fonts::FontFace fontFace, u32 pixelSize, u32 glyphIndex) -> bool {
+    auto hasGlyphParam(FontFace fontFace, u32 pixelSize, u32 glyphIndex) -> bool {
         return m_glyphParams.contains(AtlasGlyphKey { fontFace, pixelSize, glyphIndex });
     }
 
-    auto getGlyphParams(fonts::FontFace fontFace, u32 pixelSize, u32 glyphIndex) -> AtlasGlyphParams& {
+    auto getGlyphParams(FontFace fontFace, u32 pixelSize, u32 glyphIndex) -> AtlasGlyphParams& {
         return m_glyphParams[AtlasGlyphKey { fontFace, pixelSize, glyphIndex }];
     }
 
     auto pushNewImage(u32 width, u32 height) -> void {
-        auto image = VulkanImage::create(vk::ImageType::e2D, {width, height, 1}, 1, 1, false, vk::Format::eR8Unorm, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::ImageTiling::eOptimal, vma::MemoryUsage::eAuto, {}, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics], vk::ImageLayout::eUndefined);
-        auto imageShaderIndex = texturesystem::TextureManager::get().shaderResourceTable().allocateSampledImageIndex();
-        texturesystem::TextureManager::get().shaderResourceTable().bindSampledImage(image, imageShaderIndex);
+        auto image = vkrhi::VulkanImage::builder()
+            .type(vk::ImageType::e2D)
+            .extentsrd(vk::Extent3D { width, height, 1 }, 1, 1)
+            .isCubemap(false)
+            .format(vk::Format::eR8Unorm)
+            .tiling(vk::ImageTiling::eOptimal)
+            .usage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+            .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+            .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+            .initialLayout(vk::ImageLayout::eUndefined)
+            .build();
+
+        auto imageShaderIndex = TextureManager::get().shaderResourceTable().allocateSampledImageIndex();
+        TextureManager::get().shaderResourceTable().bindSampledImage(image, imageShaderIndex);
         m_atlasTextures.emplace(AtlasTexture { std::move(image), imageShaderIndex.imageIndex, AtlasShelfPacker(width, height) });
     }
 };

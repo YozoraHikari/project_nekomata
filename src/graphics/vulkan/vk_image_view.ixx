@@ -2,7 +2,7 @@ export module projnekomata:graphics.vulkan.vk_image_view;
 import vulkan;
 import :graphics.vulkan.vk_gpu_obrm;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanImageView {
 public:

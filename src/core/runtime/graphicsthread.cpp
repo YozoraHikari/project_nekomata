@@ -15,14 +15,14 @@ RenderThread::RenderThread(const std::shared_ptr<MRThreadsSharedData>& mrSharedD
     }
 
 auto RenderThread::runMainLoop() -> void {
-    cmdalloc::VulkanCommandPoolsList::initThreadLocalCommandPools();
+    gfx::vkrhi::VulkanCommandPoolsList::initThreadLocalCommandPools();
 
-    m_vkSwapchain = VulkanSwapchain::create(m_currentWindowExtent, None, false);
+    m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, None, false);
     // TODO : remove the abuse
     std::construct_at(&m_sharedRenderingResources);
-    m_transientRenderingResources = graphics::TransientRenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
+    m_transientRenderingResources = gfx::TransientRenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
     for (usize i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        m_frames[i] = graphics::FrameContext();
+        m_frames[i] = gfx::FrameContext();
     }
 
     m_timeAtStart = std::chrono::high_resolution_clock::now();
@@ -45,7 +45,7 @@ auto RenderThread::runMainLoop() -> void {
 
     log::info("Render Thread exiting...");
 
-    cmdalloc::VulkanCommandPoolsList::destroyThreadLocalCommandPools();
+    gfx::vkrhi::VulkanCommandPoolsList::destroyThreadLocalCommandPools();
 }
 
 
@@ -66,7 +66,8 @@ auto RenderThread::loop() -> void {
         m_sharedRenderingResources.displayMs = fpsSmoothedDt * 1000.0f;
     }
 
-    meshsystem::MeshAssetStorage::get().tickGC(m_currentFrameNumber);
+    m_sharedRenderingResources.checkGraphicsSettingsAndMaybeRecompileShaders();
+    gfx::MeshAssetStorage::get().tickGC(m_currentFrameNumber);
 
     auto maybeNewWindowExtent = m_mrSharedData->m_leafs.getSecondary().m_currentWindowExtent;
     if (m_mustRecreateSwapchainNextFrame || m_currentWindowExtent != maybeNewWindowExtent) {
@@ -74,22 +75,21 @@ auto RenderThread::loop() -> void {
         m_mustRecreateSwapchainNextFrame = false;
 
         // TODO: This is to work around present queues not being friendly to synchronize
-        VulkanContext::get().vkDevice().waitIdle();
-        m_vkSwapchain = VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(m_vkSwapchain)), false);
+        gfx::vkrhi::VulkanContext::get().vkDevice().waitIdle();
+        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(m_vkSwapchain)), false);
         m_transientRenderingResources.handleWindowSizeChange(m_currentWindowExtent);
     }
-    auto timeSinceStart = std::chrono::duration<float>(currentTime - m_timeAtStart).count();
 
     m_frames[m_currentFrameContextIndex].waitForLastFrame();
 
     if (m_mrSharedData->m_leafs.getSecondary().m_captureStats) {
         bool hasStats = m_frames[m_currentFrameContextIndex].m_queryPoolsHaveResultsOnFinish;
-        bool supportsPipelineStatisticsQuery = VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
+        bool supportsPipelineStatisticsQuery = gfx::vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
         m_mrSharedData->m_queryPoolStatsAreValid = hasStats;
 
         if (hasStats) {
-            vkCheckResult(m_frames[m_currentFrameContextIndex].m_timestampsQueryPool.vkQueryPool().getResults(0, 6, 48, &m_mrSharedData->m_queryTimestamps, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
-            if (supportsPipelineStatisticsQuery) vkCheckResult(m_frames[m_currentFrameContextIndex].m_pipelineStatisticsQueryPool.vkQueryPool().getResults(0, 1, 32, &m_mrSharedData->m_deferredGeometryPipelineStats, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
+            gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_timestampsQueryPool.vkQueryPool().getResults(0, 6, 48, &m_mrSharedData->m_queryTimestamps, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
+            if (supportsPipelineStatisticsQuery) gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_pipelineStatisticsQueryPool.vkQueryPool().getResults(0, 1, 32, &m_mrSharedData->m_deferredGeometryPipelineStats, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
         }
 
         m_mrSharedData->m_deltaTime = m_sharedRenderingResources.displayMs;

@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.context;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 auto GpuResourceRetireTimelineValues::latestSubmitValues() -> GpuResourceRetireTimelineValues {
     auto graphicsValue = VulkanContext::get().vkQueueGraphics().lastTimelineSubmissionValue();
@@ -14,4 +14,4 @@ auto GpuResourceRetireTimelineValues::queueCurrentValues() -> GpuResourceRetireT
     return {graphicsValue, asyncComputeValue};
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

@@ -4,7 +4,7 @@ import projnekomata.cs;
 import vulkan;
 import :graphics.vulkan.vk_gpu_obrm;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 struct ResettableCbuf;
 struct NoResettableCbuf;

@@ -3,18 +3,23 @@ import :core.math;
 
 using namespace projnekomata::math;
 
-export namespace projnekomata::ecs::components {
+export namespace projnekomata {
 
-class Transform {
+class LocalTransformComponent {
 public:
-    Transform() = default;
-    Transform(math::Vector3f position, math::Quaternion rotation, math::Vector3f scale) : m_transform3d(position, rotation, scale) {}
+    LocalTransformComponent() = default;
+    LocalTransformComponent(math::Vector3f position, math::Quaternion rotation, math::Vector3f scale) : m_transform3d(position, rotation, scale) {}
 
     Transform3D m_transform3d;
-    Matrix4x4f m_modelMatrix;
-    bool m_modelMatrixIsDirty{};
-
-    
 };
+
+class WorldTransformComponent {
+public:
+    WorldTransformComponent() = default;
+    WorldTransformComponent(math::Matrix4x4f transform) : m_transform(transform) {}
+
+    math::Matrix4x4f m_transform = math::Matrix4x4f::identity();
+};
+
 
 }

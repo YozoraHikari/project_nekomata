@@ -1,3 +1,5 @@
+module;
+#include <SDL3/SDL.h>
 module projnekomata;
 import :core.ui.ui_system;
 
@@ -10,35 +12,73 @@ auto UiSystem::create() -> Unique<UiSystem> {
     auto inst = Unique<UiSystem>::create(nullptr);
     g_uiSystem = inst.ptr();
 
-    auto viewportElem = UiNode::builder()
-        .position({0.0f, 0.0f})
-        .extentPercent({100.0f, 100.0f})
+    inst->m_uiRoot = UICanvas::builder()
         .build();
-
-    inst->m_uiRoot = std::move(viewportElem);
 
     return inst;
 }
 
-auto UiSystem::buildUi(Vec<ui::UiDrawCmd>& drawcmds, Vec<graphics::fonts::FontRasterBatch>& dstFontRasterBatches,
-        graphics::rendering::DynamicBitmapFontAtlas& fontAtlas, math::Vector2f screenLogicalSize) -> void {
-    m_lastFrameMouseHitRegions.clear();
+auto UiSystem::scanForUnrasterizedGlyphs(Vec<FontRasterBatch>& dstFontRasterBatches, gfx::DynamicBitmapFontAtlas& fontAtlas) -> void {
+    m_uiRoot->scanForUnrasterizedGlyphs(dstFontRasterBatches, fontAtlas);
+}
 
-    // Scan all text in the UI tree for glyphs to be rasterized:
-    m_uiRoot->scanTextForUnrasterizedGlyphs(dstFontRasterBatches, fontAtlas);
+auto UiSystem::buildUi(Vec<ui::UiDrawCmd>& drawcmds, gfx::DynamicBitmapFontAtlas& fontAtlas, math::Vector2f screenLogicalSize, SdlWindow& window) -> void {
+    m_lastFrameMouseHitRegions.clear();
+    m_textInputCtx.dstText = nullptr;
+
+    // Run the measurement pass:
+    m_uiRoot->measure(fontAtlas, MeasureConstraints{screenLogicalSize});
 
     // Build the UI draw commands:
-    m_uiRoot->buildDrawCmds(drawcmds, m_lastFrameMouseHitRegions, screenLogicalSize, math::Vector2f(0.0f), screenLogicalSize, m_pressedElement, m_hoveredElement, false, false);
+    auto buildCtx = BuildCtx {
+        .drawCmds = drawcmds,
+        .mouseHitRegions = m_lastFrameMouseHitRegions,
+        .fontAtlas = fontAtlas,
+        .textInputCtx = m_textInputCtx,
+        .clickedElement = m_pressedElement,
+        .hoveredElement = m_hoveredElement,
+        .focusedElement = m_focusedElement
+    };
+
+    auto inheritanceCtx = InheritanceCtx {
+        .parentIsClicked = false,
+        .parentIsHovered = false,
+        .parentIsFocused = false
+    };
+
+    m_uiRoot->buildDrawCmds(buildCtx, inheritanceCtx, Aabb2f(Vector2f(0.0f), screenLogicalSize));
+
+    if (!m_textInputActive && m_textInputCtx.dstText != nullptr) {
+        log::info("Text Input is now active");
+        m_textInputActive = true;
+        SDL_StartTextInput(window.handle());
+        auto rect = SDL_Rect{
+            .x = static_cast<int>(m_textInputCtx.rect.min().x()),
+            .y = static_cast<int>(m_textInputCtx.rect.min().y()),
+            .w = static_cast<int>(m_textInputCtx.rect.extents().x()),
+            .h = static_cast<int>(m_textInputCtx.rect.extents().y())
+        };
+        SDL_SetTextInputArea(window.handle(), &rect, 0);
+    }
+
+    if (m_textInputActive && m_textInputCtx.dstText == nullptr) {
+        log::info("Text Input is now inactive");
+        m_textInputActive = false;
+        SDL_StopTextInput(window.handle());
+    }
 }
 
 auto UiSystem::testMouseDownHit(math::Vector2f pos) -> void {
+    m_focusedElement = nullptr;
     for (auto& [position, extent, ref, capturesClicks, _, _, _] : m_lastFrameMouseHitRegions.iterRev()) {
         // todo: Make a math box/aabb type to do this
         if (position.x() <= pos.x() && pos.x() <= position.x() + extent.x()
             && position.y() <= pos.y() && pos.y() <= position.y() + extent.y()
             && capturesClicks)
         {
+            log::info("Focused Element is now 0x{:016x} <<{}>>", reinterpret_cast<usize>(ref), typeid(*ref).name());
             m_pressedElement = ref;
+            m_focusedElement = ref;
         }
     }
 }
@@ -75,4 +115,47 @@ auto UiSystem::testMouseHover(math::Vector2f pos) -> void {
     }
 }
 
+auto UiSystem::releaseFocusIfMatches(ui::UINode* element) -> void {
+    if (m_focusedElement == element) {
+        m_focusedElement = nullptr;
+    }
+}
+
+auto UiSystem::processKeydown(core::input::Key key, core::input::KeyModifierFlags mod) -> void {
+    UINode* focusedElement = m_focusedElement;
+    while (focusedElement != nullptr) {
+        if (focusedElement->onKeyDown(key, mod, false)) {
+            return;
+        }
+        focusedElement = focusedElement->parent;
+    }
+
+
+    if (wantsTextInputFocus()) {
+        if (key == core::input::Key::Backspace) {
+            auto& dstText = *m_textInputCtx.dstText;
+
+            if (dstText.empty()) return;
+
+            auto i = dstText.size() - 1;
+            while (i > 0 && (dstText[i] & 0xc0) == 0x80) i--;
+
+            dstText.erase(i);
+        }
+
+        if (mod == core::input::KeyModifierFlags::LControl && key == core::input::Key::V) {
+            auto text = SDL_GetClipboardText();
+            log::info("Ctrl+V pressed, text: {}", text);
+            if (text != nullptr) {
+                m_textInputCtx.dstText->append(text);
+                SDL_free(text);
+            }
+        }
+    }
+}
+
+auto UiSystem::textInputProcessInput(const char* sdlInput) -> void {
+    if (!wantsTextInputFocus()) return;
+    m_textInputCtx.dstText->append(sdlInput);
+}
 } // namespace projnekomata::ui

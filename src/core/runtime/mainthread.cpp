@@ -5,19 +5,18 @@ import vulkan;
 import fmt;
 import projnekomata.cs;
 import :graphics.cmd_alloc;
-import :core.ui.components.ui_rect;
-import :core.ui.components.ui_texture;
 import :core.ecs.world.renderable;
 import :core.ecs.world.transform;
 import :core.ecs.world.camera;
 import :core.runtime.mainthread;
+import :core.ecs.world.parent;
 
 namespace projnekomata {
 
-MainThread::MainThread(std::shared_ptr<MRThreadsSharedData> mrSharedData, Unique<VulkanContext>&& vkContext, SdlWindow&& sdlWindow)
+MainThread::MainThread(std::shared_ptr<MRThreadsSharedData> mrSharedData, Unique<gfx::vkrhi::VulkanContext>&& vkContext, SdlWindow&& sdlWindow)
     : m_sdlWindow(std::move(sdlWindow)), m_mrSharedData(std::move(mrSharedData)), m_vkContext(std::move(vkContext)) {
 
-    cmdalloc::VulkanCommandPoolsList::initThreadLocalCommandPools();
+    gfx::vkrhi::VulkanCommandPoolsList::initThreadLocalCommandPools();
 
     auto windowLogicalSize = m_sdlWindow.getLogicalSize();
     auto windowLogicalSizef = math::Vector2f(m_sdlWindow.getLogicalSize().x(), m_sdlWindow.getLogicalSize().y());
@@ -27,13 +26,13 @@ MainThread::MainThread(std::shared_ptr<MRThreadsSharedData> mrSharedData, Unique
 
     m_currentWorld = Unique<ecs::World>::create();
     m_inputManager = core::input::Input::create();
-    m_meshAssetStorage = meshsystem::MeshAssetStorage::create();
-    m_textureManager = graphics::texturesystem::TextureManager::create();
-    m_materialManager = MaterialManager::create();
-    m_fontManager = graphics::fonts::FontManager::create();
+    m_meshAssetStorage = gfx::MeshAssetStorage::create();
+    m_textureManager = gfx::TextureManager::create();
+    m_materialManager = gfx::MaterialManager::create();
+    m_fontManager = FontManager::create();
     m_uiSystem = ui::UiSystem::create();
 
-    m_overlayFont = graphics::fonts::FontManager::get().loadFont("../../Assets/IosevkaTerm-Light.ttf");
+    m_overlayFont = FontManager::get().loadFont("//assets:/IosevkaTerm-Light.ttf");
 }
 
 auto MainThread::runMainLoop(const std::function<void(Unique<ecs::World>&)>& initFn) -> void {
@@ -60,12 +59,12 @@ auto MainThread::runMainLoop(const std::function<void(Unique<ecs::World>&)>& ini
     }
     log::info("Main Thread exiting...");
 
-    cmdalloc::VulkanCommandPoolsList::destroyThreadLocalCommandPools();
+    gfx::vkrhi::VulkanCommandPoolsList::destroyThreadLocalCommandPools();
 }
 
 auto MainThread::loop(float dt) -> void {
     m_inputManager->handleNewFrame(m_sdlWindow);
-    VulkanContext::get().antiLagPaceInput(m_frameIndex, 0);
+    gfx::vkrhi::VulkanContext::get().antiLagPaceInput(m_frameIndex, 0);
 
     auto logicalSize = m_sdlWindow.getLogicalSize();
     auto logicalSizeFloat = math::Vector2f(logicalSize.x(), logicalSize.y());
@@ -80,6 +79,9 @@ auto MainThread::loop(float dt) -> void {
         case SDL_EVENT_KEY_DOWN: {
             auto code = core::input::mapSdlKeyToKey(event.key.key);
             auto mod = core::input::mapSdlKeyModToKeyMod(event.key.mod);
+            if (ui::UiSystem::get().wantsTextInputFocus()) {
+                ui::UiSystem::get().processKeydown(code, mod);
+            }
             m_inputManager->setKeyState(code, true);
             m_inputManager->insertInputKeyEvent(core::input::InputKeyEvent{code, mod, true, event.key.repeat});
             break;
@@ -122,6 +124,11 @@ auto MainThread::loop(float dt) -> void {
 
             break;
         }
+        case SDL_EVENT_TEXT_INPUT: {
+            auto text = event.text.text;
+
+            ui::UiSystem::get().textInputProcessInput(text);
+        }
         }
     }
     m_inputManager->setMouseDelta(totalMouseDelta);
@@ -137,14 +144,15 @@ auto MainThread::loop(float dt) -> void {
 
 
     m_currentWorld->scriptsUpdate(dt);
+    updateEcsWorldTransforms();
 
     m_mrSharedData->m_leafs.getPrimary().m_currentWindowExtent = m_sdlWindow.vulkanGetDrawableSize();
     m_mrSharedData->m_leafs.getPrimary().m_frameIndex = m_frameIndex;
     if (!m_currentWorld.isNull()) {
-        m_currentWorld->components<ecs::components::Renderable>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_renderables);
-        m_currentWorld->components<ecs::components::PointLight>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_pointlights);
-        m_currentWorld->components<ecs::components::Transform>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_transforms);
-        m_currentWorld->components<ecs::components::Camera>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_cameras);
+        m_currentWorld->components<RenderableComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_renderables);
+        m_currentWorld->components<PointlightComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_pointlights);
+        m_currentWorld->components<WorldTransformComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_transforms);
+        m_currentWorld->components<CameraComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_cameras);
     }
     m_textureManager->textureToShaderIndexTable().snapshotTables(
         m_mrSharedData->m_leafs.getPrimary().m_textureToImageShaderIndexSnapshot,
@@ -161,16 +169,17 @@ auto MainThread::loop(float dt) -> void {
 
     // ---- UI -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.clear();
-    auto fontRasterBatches = Vec<graphics::fonts::FontRasterBatch>::create();
-    ui::UiSystem::get().buildUi(m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds, fontRasterBatches, m_mrSharedData->m_fontAtlas, logicalSizeFloat);
+    auto fontRasterBatches = Vec<FontRasterBatch>::create();
+    ui::UiSystem::get().scanForUnrasterizedGlyphs(fontRasterBatches, m_mrSharedData->m_fontAtlas);
 
+    Option<std::string> debugText = None;
+    auto debugTextFontSize = 14.0_f32;
     if (m_waitForFrameStats) {
         m_mrSharedData->m_statsReady.wait(false, std::memory_order_acquire);
-        auto& physicalDeviceProps = VulkanContext::get().vkPhysicalDeviceProps();
+        auto& physicalDeviceProps = gfx::vkrhi::VulkanContext::get().vkPhysicalDeviceProps();
         auto supportsPipelineStatisticsQuery = physicalDeviceProps.m_hasPipelineStatisticsQuery;
         f64 deviceTimestampPeriod = physicalDeviceProps.m_timestampPeriod;
-        auto [blockBytes, allocBytes] = VulkanContext::get().currentVramUsage();
+        auto [blockBytes, allocBytes] = gfx::vkrhi::VulkanContext::get().currentVramUsage();
 
         std::string queryStats = "\n [statistics not available]";
 
@@ -190,7 +199,7 @@ auto MainThread::loop(float dt) -> void {
 
         std::string vramStr;
         if (physicalDeviceProps.m_hasExtMemoryBudget) {
-            f64 vramBudget = VulkanContext::get().extMemoryBudgetGetVramBudget();
+            f64 vramBudget = gfx::vkrhi::VulkanContext::get().extMemoryBudgetGetVramBudget();
             vramStr = fmt::format("total {:.2f} MB used/allocd block bytes: {:.2f}/{:.2f} MB budget: {:.2f} MB",
                 physicalDeviceProps.m_vramSize / 1024.0_f64 / 1024.0_f64,
                 allocBytes / 1024.0_f64 / 1024.0_f64,
@@ -218,39 +227,43 @@ auto MainThread::loop(float dt) -> void {
             physicalDeviceProps.m_driverName, physicalDeviceProps.getDriverVersionVariant(), physicalDeviceProps.getDriverVersionMajor(), physicalDeviceProps.getDriverVersionMinor(), physicalDeviceProps.getDriverVersionPatch(),
             physicalDeviceProps.getApiVersionVariant(), physicalDeviceProps.getApiVersionMajor(), physicalDeviceProps.getApiVersionMinor(), physicalDeviceProps.getApiVersionPatch(),
             vramStr,
-            VulkanContext::get().shaderCache()->usesPipelineBinaries() ? "Yes" : "No",
-            graphics::texturesystem::TextureManager::get().shaderResourceTable().modelName(),
-            antiLagMethodToString(VulkanContext::get().antiLagMethod()),
+            gfx::vkrhi::VulkanContext::get().shaderCache()->usesPipelineBinaries() ? "Yes" : "No",
+            gfx::TextureManager::get().shaderResourceTable().modelName(),
+            gfx::vkrhi::antiLagMethodToString(gfx::vkrhi::VulkanContext::get().antiLagMethod()),
             m_mrSharedData->m_numDrawcalls,
             queryStats
         );
-
-        auto fontSize = 14.0_f32;
-        auto rasterbatch = graphics::fonts::FontManager::get().findAndBatchMissingGlyphs(m_overlayFont, m_mrSharedData->m_fontAtlas, text, fontSize);
+        auto rasterbatch = FontManager::get().findAndBatchMissingGlyphs(m_overlayFont, m_mrSharedData->m_fontAtlas, text, debugTextFontSize);
 
         if (rasterbatch.isSome()) fontRasterBatches.emplace(std::move(rasterbatch.unwrap()));
 
-        m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.emplace(ui::UiTextDrawCmd {
-            .ssPosition = Vector2f(4.0f, 18.0f),
-            .text = text,
-            .face = m_overlayFont,
-            .size = fontSize,
-            .color = Color::fromRgba32Float(1.0f, 1.0f, 1.0f, 1.0f)
-        });
+        debugText = Some(std::move(text));
     }
 
     m_mrSharedData->m_leafs.getPrimary().m_fontsCopyRegions.clear();
     m_mrSharedData->m_leafs.getPrimary().m_fontsUploadPixelBuffer.clear();
     m_mrSharedData->m_leafs.getPrimary().m_fontsNewImageIndices.clear();
     if (fontRasterBatches.len() > 0) {
-        graphics::fonts::FontRasterInfo rasterInfo = {
+        FontRasterInfo rasterInfo = {
             .batches         = fontRasterBatches.asSlice(),
             .atlas           = m_mrSharedData->m_fontAtlas,
             .copyRegions     = m_mrSharedData->m_leafs.getPrimary().m_fontsCopyRegions,
             .resultBuffer    = m_mrSharedData->m_leafs.getPrimary().m_fontsUploadPixelBuffer,
             .newImageIndices = m_mrSharedData->m_leafs.getPrimary().m_fontsNewImageIndices
         };
-        graphics::fonts::FontManager::get().rasterizeGlyphs(rasterInfo);
+        FontManager::get().rasterizeGlyphs(rasterInfo);
+    }
+
+    m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.clear();
+    ui::UiSystem::get().buildUi(m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds, m_mrSharedData->m_fontAtlas, logicalSizeFloat, m_sdlWindow);
+
+    if (debugText.isSome()) {
+        auto glyphs = FontManager::get().shapeText(m_overlayFont, m_mrSharedData->m_fontAtlas, debugText.unwrap(), debugTextFontSize, false).first;
+        m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.emplace(ui::UiTextDrawCmd {
+            .ssPosition = Vector2f(4.0f, 4.0f),
+            .glyphs = std::move(glyphs),
+            .color = Color::fromRgba32Float(1.0f, 1.0f, 1.0f, 1.0f)
+        });
     }
 
     if (specialKeyPressed) {
@@ -263,4 +276,42 @@ auto MainThread::loop(float dt) -> void {
     m_frameIndex++;
 }
 
+auto MainThread::updateEcsWorldTransforms() -> void {
+    auto stack = Vec<std::pair<ecs::Entity, math::Matrix4x4f>>::create();
+
+    // default-initialize world transforms of root nodes:
+    for (auto [i, comp] : m_currentWorld->components<LocalTransformComponent>().storage().iter().enumerate()) {
+        auto ent = m_currentWorld->components<LocalTransformComponent>().storageToEntity()[i];
+
+        if (m_currentWorld->components<ParentComponent>().containsEntity(ent)) continue;
+
+        auto modelmatrix = comp.m_transform3d.computeModelMatrix();
+
+        auto& worldtransform = m_currentWorld->components<WorldTransformComponent>().get(ent);
+        worldtransform.m_transform = modelmatrix;
+
+        auto children = m_currentWorld->components<ChildrenComponent>().tryGet(ent);
+        if (children != nullptr) {
+            for (auto child : children->m_children) {
+                stack.emplace(child, modelmatrix);
+            }
+        }
+    }
+
+    // perform BFS on the remaining nodes:
+    while (stack.len() > 0) {
+        auto [ent, parentModelMatrix] = stack.pop2().unwrap();
+        auto localtransform = m_currentWorld->components<LocalTransformComponent>().get(ent);
+        auto worldtransform = parentModelMatrix * localtransform.m_transform3d.computeModelMatrix();
+
+        m_currentWorld->components<WorldTransformComponent>().get(ent).m_transform = worldtransform;
+
+        auto children = m_currentWorld->components<ChildrenComponent>().tryGet(ent);
+        if (children != nullptr) {
+            for (auto child : children->m_children) {
+                stack.emplace(child, worldtransform);
+            }
+        }
+    }
+}
 }

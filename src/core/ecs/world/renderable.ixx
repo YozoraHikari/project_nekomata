@@ -3,14 +3,14 @@ import :graphics.texturesystem.texture_manager;
 import :graphics.meshsystem.mesh_asset_storage;
 import :graphics.materialsystem.mat_manager;
 
-export namespace projnekomata::ecs::components {
+export namespace projnekomata {
 
-struct Renderable {
-    meshsystem::MeshAsset meshAsset;
-    Material material;
+struct RenderableComponent {
+    MeshAsset meshAsset;
+    gfx::Material material;
 
-    Renderable() = default;
-    Renderable(meshsystem::MeshAsset meshAsset, Material material) : meshAsset(meshAsset), material(material) {}
+    RenderableComponent() = default;
+    RenderableComponent(MeshAsset meshAsset, gfx::Material material) : meshAsset(meshAsset), material(material) {}
 };
 
 }

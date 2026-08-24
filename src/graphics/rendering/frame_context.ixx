@@ -6,7 +6,7 @@ import :graphics.vulkan.vk_swapchain;
 import :core.runtime.shared_data;
 import :graphics.rendering.frame_rendering_resources;
 
-export namespace projnekomata::graphics {
+export namespace projnekomata::gfx {
 
 struct FrameResult {
     bool shouldRecreateSwapchain = false;
@@ -21,13 +21,13 @@ public:
     auto waitForLastFrame() -> void;
 
     [[nodiscard]] auto execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources,
-                               VulkanSwapchain& swapchain, MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult;
+        vkrhi::VulkanSwapchain& swapchain, MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult;
 
     // ---------------------------------------------------------------------------------------------------------------------------------------------------------
     // Statistics
 
-    VulkanQueryPool m_timestampsQueryPool = nullptr;
-    VulkanQueryPool m_pipelineStatisticsQueryPool = nullptr;
+    vkrhi::VulkanQueryPool m_timestampsQueryPool = nullptr;
+    vkrhi::VulkanQueryPool m_pipelineStatisticsQueryPool = nullptr;
     bool m_queryPoolsHaveResultsOnFinish = false;
     u64 m_numDrawcalls = 0;
 

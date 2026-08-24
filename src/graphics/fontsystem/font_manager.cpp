@@ -6,7 +6,7 @@ import projnekomata.cs;
 import :graphics.fontsystem.dynamic_font_atlas;
 import :graphics.fontsystem.font_manager;
 
-namespace projnekomata::graphics::fonts {
+namespace projnekomata {
 
 FontManager::FontManager(std::nullptr_t) {  }
 FontManager::FontManager() {
@@ -26,7 +26,8 @@ auto FontManager::create() -> Unique<FontManager> {
     return fontManager;
 }
 
-auto FontManager::loadFont(const std::filesystem::path& path) -> FontFace {
+auto FontManager::loadFont(const fs::Path& path) -> FontFace {
+    auto resolvedPath = fs::PathResolver::resolve(path);
     std::unique_lock lock(m_registryMutex);
 
     u32 slot = getFreeFontIndex();
@@ -34,14 +35,14 @@ auto FontManager::loadFont(const std::filesystem::path& path) -> FontFace {
 
     {
         std::scoped_lock ftLock(m_ftLibraryMutex);
-        if (FT_New_Face(m_ftLibrary, path.string().c_str(), 0, &fontEntry.face)) {
+        if (FT_New_Face(m_ftLibrary, resolvedPath.string().c_str(), 0, &fontEntry.face)) {
             panic("failed to load font face");
         }
     }
 
     fontEntry.unitsPerEm = fontEntry.face->units_per_EM;
-    fontEntry.ascender = fontEntry.face->ascender;
-    fontEntry.descender = fontEntry.face->descender;
+    fontEntry.ascender = fontEntry.face->ascender / 64.0f;
+    fontEntry.descender = fontEntry.face->descender / 64.0f;
     fontEntry.isLoaded = true;
 
     return FontFace(slot);
@@ -160,15 +161,52 @@ auto FontManager::rasterizeGlyphs(FontRasterInfo rasterInfo) -> void {
     rasterInfo.resultBuffer.resize(bufferCursor, 0);
 }
 
-math::Vector2f pixelsToNDC(math::Vector2f px, math::Vector2f screenSize) {
-    return math::Vector2f(
-         (px.x() / screenSize.x()) * 2.0f - 1.0f,
-        ((px.y() / screenSize.y()) * 2.0f - 1.0f)
-    );
+auto FontManager::measureText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize) -> math::Vector2f {
+    std::shared_lock lock(m_registryMutex);
+    auto& fontEntry = *m_fontEntries[font.handleIndex];
+    if (!fontEntry.isLoaded) return {};
+    std::scoped_lock faceLock(fontEntry.rasterMutex);
+    bool hasKerning = FT_HAS_KERNING(fontEntry.face);
+
+    math::Vector2f totalSize = math::Vector2f(0.0f, 0.0f);
+
+    auto lineLen = 0.0_f32;
+    u32 previousGlyphIndex = 0;
+    for (auto it = utf8::iterator(text.begin(), text.begin(), text.end()); it != utf8::iterator(text.end(), text.begin(), text.end()); it++) {
+        u32 c = *it;
+        u32 glyphId = FT_Get_Char_Index(fontEntry.face, c);
+
+        if (c == '\n') {
+            totalSize.y() += fontEntry.face->size->metrics.height / 64.0f;
+            lineLen = 0.0_f32;
+            previousGlyphIndex = 0;
+            continue;
+        }
+
+        if (hasKerning && previousGlyphIndex && glyphId) {
+            FT_Vector kerning;
+            FT_Get_Kerning(fontEntry.face, previousGlyphIndex, glyphId, FT_KERNING_DEFAULT, &kerning);
+            lineLen += kerning.x / 64.0f;
+        }
+
+        if (!atlas.hasGlyphParam(font, pixelSize, glyphId)) {
+            panic("glyph {} (code {}) with font={}, pixelSize={} was not available in the atlas at time of measurement", glyphId, (char)c, (u32)font.handleIndex, pixelSize);
+        }
+
+        auto& param = atlas.getGlyphParams(font, pixelSize, glyphId);
+        lineLen += param.advance;
+        totalSize.x() = std::max(totalSize.x(), lineLen);
+        previousGlyphIndex = glyphId;
+    }
+
+    auto lastLineHeight = fontEntry.ascender - fontEntry.descender;
+    totalSize.y() += lastLineHeight;
+
+    return totalSize;
 }
 
-auto FontManager::shapeText(FontFace font, rendering::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize)
-    -> Vec<GlyphInstance> {
+auto FontManager::shapeText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize, bool feedback)
+    -> std::pair<Vec<GlyphInstance>, Vec<GlyphFeedback>> {
     std::shared_lock lock(m_registryMutex);
     auto& fontEntry = *m_fontEntries[font.handleIndex];
     if (!fontEntry.isLoaded) return {};
@@ -178,12 +216,16 @@ auto FontManager::shapeText(FontFace font, rendering::DynamicBitmapFontAtlas& at
     bool hasKerning = FT_HAS_KERNING(fontEntry.face);
 
     auto glyphInstances = Vec<GlyphInstance>::withCapacity(text.size());
+    auto glyphFeedbacks = Vec<GlyphFeedback>::create();
+    if (feedback) glyphFeedbacks.reserveExact(text.size());
 
     math::Vector2f cursor = math::Vector2f(0.0f, 0.0f);
     u32 previousGlyphIndex = 0;
 
     for (auto it = utf8::iterator(text.begin(), text.begin(), text.end()); it != utf8::iterator(text.end(), text.begin(), text.end()); it++) {
         u32 c = *it;
+
+        if (feedback) glyphFeedbacks.emplace(GlyphFeedback { cursor });
 
         if (c == '\n') {
             cursor.x() = 0.0f;
@@ -212,10 +254,10 @@ auto FontManager::shapeText(FontFace font, rendering::DynamicBitmapFontAtlas& at
             continue;
         }
 
-        auto ascender = fontEntry.ascender / 64.0f;
+        auto ascender = fontEntry.ascender;
 
         float gx = cursor.x() + param.bearing.x();
-        float gy = cursor.y() - param.bearing.y();
+        float gy = cursor.y() - param.bearing.y() + ascender;
 
         GlyphInstance inst;
         inst.ssStart = math::Vector2f(gx, gy);
@@ -229,9 +271,11 @@ auto FontManager::shapeText(FontFace font, rendering::DynamicBitmapFontAtlas& at
         previousGlyphIndex = glyphId;
     }
 
-    return glyphInstances;
+    glyphFeedbacks.emplace(GlyphFeedback { cursor });
+
+    return { std::move(glyphInstances), std::move(glyphFeedbacks) };
 }
-auto FontManager::findAndBatchMissingGlyphs(FontFace font, rendering::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize)
+auto FontManager::findAndBatchMissingGlyphs(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize)
     -> Option<FontRasterBatch> {
     std::shared_lock lock(m_registryMutex);
 
@@ -271,4 +315,4 @@ u32 FontManager::getFreeFontIndex() {
     return m_fontEntries.size() - 1;
 }
 
-} // namespace projnekomata::graphics::fonts
+} // namespace projnekomata

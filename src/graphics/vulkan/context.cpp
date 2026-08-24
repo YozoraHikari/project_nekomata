@@ -23,7 +23,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(
     return VK_FALSE;
 }
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanContext::VulkanContext(std::nullptr_t) {}
 VulkanContext::~VulkanContext() {

@@ -10,164 +10,114 @@ import projnekomata;
 
 using namespace projnekomata::math;
 using namespace projnekomata::core::input;
+using Vertex = projnekomata::Vertex;
 
-class MaterialProps {
-public:
-    constexpr static u32 kFlagColorIsTex = 1 << 0;
-    constexpr static u32 kFlagRoughnessIsTex = 1 << 1;
-    constexpr static u32 kFlagMetallicIsTex = 1 << 2;
-    constexpr static u32 kFlagHasNormalMap = 1 << 3;
+auto menuButton(const std::string& text, projnekomata::FontFace fontFace, const projnekomata::ui::ElementStyle& elementStyle, const projnekomata::ui::ElementStyle& buttonStyle, std::function<void(Vector2f)> onClick) -> Unique<projnekomata::ui::UIBox> {
+    return projnekomata::ui::UIBox::builder()
+        .child(
+            projnekomata::ui::UIInteractive::builder()
+                .child(
+                    projnekomata::ui::UIPanel::builder()
+                        .child(
+                            projnekomata::ui::UIBox::builder()
+                                .child(
+                                    projnekomata::ui::UIText::builder(text, 16.0f, fontFace)
+                                        .style(elementStyle)
+                                        .build()
+                                )
+                                .positionX(20.0f)
+                                .anchorPreset(projnekomata::ui::AnchorPreset::MiddleLeft)
+                                .build()
+                        )
+                        .style(buttonStyle)
+                        .build()
+                )
+                .onClick(std::move(onClick))
+                .capturesClicks(true)
+                .capturesHover(true)
+                .build()
+        )
+        .extentPercentX(100.0f)
+        .extentY(50.0f)
+        .build();
+}
 
-    MaterialProps() = default;
-
-    [[nodiscard]] constexpr auto setColor(Vector3f color) -> MaterialProps& {
-        colorOrTex = color;
-        flags &= ~kFlagColorIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setColor(projnekomata::graphics::texturesystem::Texture tex) -> MaterialProps& {
-        colorOrTex.x() = std::bit_cast<f32>(tex.index);
-        flags |= kFlagColorIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setRoughness(f32 roughness) -> MaterialProps& {
-        roughnessOrTex = roughness;
-        flags &= ~kFlagRoughnessIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setRoughness(projnekomata::graphics::texturesystem::Texture tex) -> MaterialProps& {
-        roughnessOrTex = std::bit_cast<f32>(tex.index);
-        flags |= kFlagRoughnessIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setMetallic(f32 metallic) -> MaterialProps& {
-        metallicOrTex = metallic;
-        flags &= ~kFlagMetallicIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setMetallic(projnekomata::graphics::texturesystem::Texture tex) -> MaterialProps& {
-        metallicOrTex = std::bit_cast<f32>(tex.index);
-        flags |= kFlagMetallicIsTex;
-        return *this;
-    }
-    [[nodiscard]] constexpr auto setNormalMap(projnekomata::graphics::texturesystem::Texture tex) -> MaterialProps& {
-        normalMapTex = std::bit_cast<u32>(tex.index);
-        flags |= kFlagHasNormalMap;
-        return *this;
-    }
-
-private:
-    u32 flags = 0;
-
-    Vector3f colorOrTex = Vector3f(1.0f, 1.0f, 1.0f);
-    f32 roughnessOrTex = 1.0f;
-    f32 metallicOrTex = 0.0f;
-    u32 normalMapTex = 0;
-};
-
-class MovingScript : public projnekomata::ecs::ScriptBase {
-public:
-    MovingScript(float time, float spinRadius, float spinThetaSpeed, float spinPhiSpeed, float spinInitialTheta, float spinInitialPhi, float rotationConstX, float rotationConstY) :
-        m_time(time), m_spinRadius(spinRadius), m_spinThetaSpeed(spinThetaSpeed), m_spinPhiSpeed(spinPhiSpeed), m_spinInitialTheta(spinInitialTheta), m_spinInitialPhi(spinInitialPhi), m_rotationConstX(rotationConstX), m_rotationConstY(rotationConstY) {}
-
-    void onCreate() override {/*
-        m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity)
-            .m_transform3d = Transform3D::identity();*/
-    }
-    void onDestroy() override {}
-    void onUpdate(float dt) override {
-        m_time += dt;
-
-/*
-        m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity).m_transform3d.m_position =
-            Vector3f(
-                m_spinRadius * std::cos(m_spinInitialTheta + m_spinThetaSpeed * m_time),
-                10.0f * std::cos(m_spinInitialPhi + m_spinPhiSpeed * m_time),
-                m_spinRadius * std::sin(m_spinInitialTheta + m_spinThetaSpeed * m_time)
-            );
-        m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity)
-            .m_transform3d.m_rotation = Quaternion::fromEulerAngles(0.8f * m_time * m_rotationConstX, 0.8f * m_time * m_rotationConstY, 0.4f * m_time * m_rotationConstX);
-*/    }
-
-    float m_time;
-
-    float m_spinRadius;
-    float m_spinThetaSpeed;
-    float m_spinPhiSpeed;
-    float m_spinInitialTheta;
-    float m_spinInitialPhi;
-    float m_rotationConstX;
-    float m_rotationConstY;
-};
 
 class CameraScript : public projnekomata::ecs::ScriptBase {
 public:
-    CameraScript(projnekomata::graphics::fonts::FontFace face) : m_fontFace(face) {}
+    CameraScript(projnekomata::FontFace face) : m_fontFace(face) {}
 
     void onCreate() override {
-        m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity)
+        m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity)
             .m_transform3d = Transform3D::identity();
-        m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity)
+        m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity)
             .m_transform3d.m_position = { 0.0f, 0.0f, 0.0f };
 
-        auto& ts = projnekomata::graphics::texturesystem::TextureManager::get();
+        auto& ts = projnekomata::gfx::TextureManager::get();
 
-        auto samplerSettings = projnekomata::graphics::texturesystem::SamplerParams::defaultValues()
+        auto samplerSettings = projnekomata::gfx::SamplerParams::defaultValues()
             .setAnisotropy(16.0f);
 
-        projnekomata::graphics::texturesystem::Texture ts1 = ts.loadKtx2TextureAsync("../../Assets/ui_test.ktx2", samplerSettings);
-        projnekomata::graphics::texturesystem::Texture ts2 = ts.loadKtx2TextureAsync("../../Assets/ui_test2.ktx2", samplerSettings);
-        projnekomata::graphics::texturesystem::Texture ts3 = ts.loadKtx2TextureAsync("../../Assets/ui_test3.ktx2", samplerSettings);
-        projnekomata::graphics::texturesystem::Texture ts4 = ts.loadKtx2TextureAsync("../../Assets/ui_test4.ktx2", samplerSettings);
-        projnekomata::graphics::texturesystem::Texture ts5 = ts.loadKtx2TextureAsync("../../Assets/ui_test5.ktx2", samplerSettings);
+        projnekomata::Texture ts1 = ts.loadKtx2TextureAsync("//assets:/ui_test.ktx2", samplerSettings);
+        projnekomata::Texture ts2 = ts.loadKtx2TextureAsync("//assets:/ui_test2.ktx2", samplerSettings);
+        projnekomata::Texture ts3 = ts.loadKtx2TextureAsync("//assets:/ui_test3.ktx2", samplerSettings);
+        projnekomata::Texture ts4 = ts.loadKtx2TextureAsync("//assets:/ui_test4.ktx2", samplerSettings);
+        projnekomata::Texture ts5 = ts.loadKtx2TextureAsync("//assets:/ui_test5.ktx2", samplerSettings);
 
-        auto posText = projnekomata::ui::UiNode::builder()
-            .position({10.0f, 280.0f})
-            .text("hai :3", 18.0f, std::move(m_fontFace))
-            .build();
+        auto posText = projnekomata::ui::UIText::create("hai :3", 18.0f, m_fontFace);
 
         m_text = posText.ptr();
-        projnekomata::ui::UiSystem::get().getRoot().addChild(std::move(posText));
+        //projnekomata::ui::UiSystem::get().getRoot().addChild(std::move(posText));
 
         // ---- Escape Overlay Memes ---------------------------------------------------------------------------------------------------------------------------
 
-        auto escapeOverlayMeme1 = projnekomata::ui::UiNode::builder()
+        auto escapeOverlayMeme1 = projnekomata::ui::UIBox::builder()
+            .child(
+                projnekomata::ui::UIImage::create(ts1, Vector2f(0.0f), Vector2f(1.0f))
+            )
             .position({800.0f, 50.0f})
             .extent({250.0f, 250.0f})
-            .texture(ts1)
             .build();
 
-        auto escapeOverlayMeme2 = projnekomata::ui::UiNode::builder()
+        auto escapeOverlayMeme2 = projnekomata::ui::UIBox::builder()
+            .child(
+                projnekomata::ui::UIImage::create(ts2, Vector2f(0.0f), Vector2f(1.0f))
+            )
             .position({800.0f, 310.0f})
             .extent({320.0f, 320.0f})
-            .texture(ts2)
             .build();
 
-        auto escapeOverlayMeme3 = projnekomata::ui::UiNode::builder()
+        auto escapeOverlayMeme3 = projnekomata::ui::UIBox::builder()
+            .child(
+                projnekomata::ui::UIImage::create(ts3, Vector2f(0.0f), Vector2f(1.0f))
+            )
             .position({800.0f, 640.0f})
             .extent({250.0f, 275.0f})
-            .texture(ts3)
             .build();
 
-        auto escapeOverlayMeme4 = projnekomata::ui::UiNode::builder()
+        auto escapeOverlayMeme4 = projnekomata::ui::UIBox::builder()
+            .child(
+                projnekomata::ui::UIImage::create(ts4, Vector2f(0.0f), Vector2f(1.0f))
+            )
             .position({1200.0f, 200.0f})
             .extent({400.0f, 350.0f})
-            .texture(ts4)
             .build();
 
-        auto escapeOverlayMeme5 = projnekomata::ui::UiNode::builder()
+        auto escapeOverlayMeme5 = projnekomata::ui::UIBox::builder()
+            .child(
+                projnekomata::ui::UIImage::create(ts5, Vector2f(0.0f), Vector2f(1.0f))
+            )
             .position({1200.0f, 600.0f})
             .extent({400.0f, 380.0f})
-            .texture(ts5)
             .build();
 
         // ---- Escape Overlay Menu ----------------------------------------------------------------------------------------------------------------------------
 
 
         auto buttonStyle = projnekomata::ui::ElementStyle::builder()
-            .color(projnekomata::Color::fromRgba32Float(.455f, .204f, .922f, 0.95f))
-            .colorHovered(projnekomata::Color::fromRgba32Float(.335f, .084f, .802f, 0.95f))
-            .colorPressed(projnekomata::Color::fromRgba32Float(.215f, .064f, .682f, 0.95f))
+            .color(projnekomata::Color::fromRgba32Float(.204f, .204f, .204f, 0.95f))
+            .colorHovered(projnekomata::Color::fromRgba32Float(.254f, .254f, .254f, 0.95f))
+            .colorPressed(projnekomata::Color::fromRgba32Float(.154f, .154f, .154f, 0.95f))
             .build();
 
         auto buttonTextStyle = projnekomata::ui::ElementStyle::builder()
@@ -176,107 +126,109 @@ public:
             .hoverStateInheritsParent(true)
             .build();
 
-        auto escapeOverlayMenuText = projnekomata::ui::UiNode::builder()
-            .position({20.0f, 190.0f})
-            .extentX(460.0f)
-            .extentPercentY(100.0f)
-            .text("Project Nekomata", 18.0f, m_fontFace.clone())
+        auto overlayStyle = projnekomata::ui::ElementStyle::builder()
+            .color(projnekomata::Color::fromRgba32Float(.0f, .0f, .0f, 0.25f))
             .build();
 
-        auto continueButtonText = projnekomata::ui::UiNode::builder()
-            .position({20.0f, 36.0f})
-            .text("Continue", 18.0f, m_fontFace.clone())
-            .style(buttonTextStyle)
+        auto menuPanelStyle = projnekomata::ui::ElementStyle::builder()
+            .color(projnekomata::Color::fromRgba32Float(.0f, .0f, .0f, 0.85f))
             .build();
 
-        auto menuOverlayColor = projnekomata::Color::fromRgba32Float(.0f, .0f, .0f, 0.85f);
-        auto menuBgColor = projnekomata::Color::fromRgba32Float(.0f, .0f, .0f, 0.25f);
-        auto escapeOverlayMenuButton1 = projnekomata::ui::UiNode::builder()
-            .extentPercentX(100.0f)
-            .extentY(60.0f)
-            .rect()
-            .style(buttonStyle)
-            .capturesClicks(true)
-            .capturesHover(true)
-            .onClick([this](Vector2f) {
-                Input::get().setMouseMode(MouseMode::Captured);
-                m_handleMouseMovement = true;
-                m_escOverlay->visible = false;
-            })
-            .children(std::move(continueButtonText))
-            .build();
+        auto escapeOverlay = projnekomata::ui::UIPanel::builder()
+            .child(
+                projnekomata::ui::UICanvas::builder()
+                    .addChild(std::move(escapeOverlayMeme1))
+                    .addChild(std::move(escapeOverlayMeme2))
+                    .addChild(std::move(escapeOverlayMeme3))
+                    .addChild(std::move(escapeOverlayMeme4))
+                    .addChild(std::move(escapeOverlayMeme5))
+                    .addChild(
+                        projnekomata::ui::UIBox::builder()
+                            .child(
+                                projnekomata::ui::UIPanel::builder()
+                                    .child(
+                                        projnekomata::ui::UICanvas::builder()
+                                            .addChild(
+                                                projnekomata::ui::UIBox::builder()
+                                                    .child(
+                                                        projnekomata::ui::UIText::create("Project Nekomata", 18.0f, m_fontFace)
+                                                    )
+                                                    .position({20.0f, 190.0f})
+                                                    .build()
+                                            )
+                                            .addChild(
+                                                projnekomata::ui::UIBox::builder()
+                                                    .child(
+                                                        projnekomata::ui::UIStack::builder()
+                                                            .addChild(menuButton(
+                                                                "Continue",
+                                                                m_fontFace,
+                                                                buttonTextStyle,
+                                                                buttonStyle,
+                                                                [this](Vector2f) {
+                                                                    Input::get().setMouseMode(MouseMode::Captured);
+                                                                     m_handleInput = true;
+                                                                     m_escOverlay->visible = false;
+                                                                }
+                                                            ))
+                                                            .addChild(menuButton(
+                                                                "Test Logger Messages",
+                                                                m_fontFace,
+                                                                buttonTextStyle,
+                                                                buttonStyle,
+                                                                [this](Vector2f) {
+                                                                    projnekomata::log::trace("Test Trace");
+                                                                    projnekomata::log::info("Test Info");
+                                                                    projnekomata::log::warn("Test Warning");
+                                                                    projnekomata::log::error("Test Error");
+                                                                    projnekomata::log::crit("Test Critical");
+                                                                }
+                                                            ))
+                                                            .addChild(menuButton(
+                                                                "Panic",
+                                                                m_fontFace,
+                                                                buttonTextStyle,
+                                                                buttonStyle,
+                                                                [this](Vector2f) {
+                                                                    panic("Test Panic");
+                                                                }
+                                                            ))
+                                                            .spacing(10.0f)
+                                                            .direction(projnekomata::ui::StackDirection::TopToBottom)
+                                                            .build()
 
-        auto testLogButtonText = projnekomata::ui::UiNode::builder()
-            .position({20.0f, 36.0f})
-            .text("Test Logger Messages", 18.0f, m_fontFace.clone())
-            .style(buttonTextStyle)
-            .build();
-
-        auto escapeOverlayMenuButton2 = projnekomata::ui::UiNode::builder()
-            .extentPercentX(100.0f)
-            .extentY(60.0f)
-            .rect()
-            .style(buttonStyle)
-            .capturesClicks(true)
-            .capturesHover(true)
-            .onClick([this](Vector2f) {
-                projnekomata::log::trace("Test Trace");
-                projnekomata::log::info("Test Info");
-                projnekomata::log::warn("Test Warning");
-                projnekomata::log::error("Test Error");
-                projnekomata::log::crit("Test Critical");
-            })
-            .children(std::move(testLogButtonText))
-            .build();
-
-
-        auto testPanicButtonText = projnekomata::ui::UiNode::builder()
-            .position({20.0f, 36.0f})
-            .text("Test Panic", 18.0f, m_fontFace.clone())
-            .style(buttonTextStyle)
-            .build();
-
-        auto escapeOverlayMenuButton3 = projnekomata::ui::UiNode::builder()
-            .extentPercentX(100.0f)
-            .extentY(60.0f)
-            .rect()
-            .style(buttonStyle)
-            .capturesClicks(true)
-            .capturesHover(true)
-            .onClick([this](Vector2f) {
-                panic("Test Panic");
-            })
-            .children(std::move(testPanicButtonText))
-            .build();
-
-        auto escapeOverlayButtons = projnekomata::ui::UiNode::builder()
-            .positionY(300.0f)
-            .extentPercentX(100.0f)
-            .extentY(400.0f)
-            .childrenLayout(projnekomata::ui::StackLayout(projnekomata::ui::StackDirection::VerticalTopToBottom, 10.0f))
-            .children(std::move(escapeOverlayMenuButton1), std::move(escapeOverlayMenuButton2), std::move(escapeOverlayMenuButton3))
-            .build();
-
-
-        auto escapeOverlayMenuRect = projnekomata::ui::UiNode::builder()
-            .position({250.0f, 0.0f})
-            .extentX(500.0f)
-            .extentPercentY(100.0f)
-            .rect()
-            .style(projnekomata::ui::ElementStyle::builder().color(menuOverlayColor).build())
-            .children(std::move(escapeOverlayMenuText), std::move(escapeOverlayButtons))
-            .build();
-
-        auto escapeOverlay = projnekomata::ui::UiNode::builder()
-            .position({0.0f, 0.0f})
-            .extentPercent({100.0f, 100.0f})
-            .rect()
-            .style(projnekomata::ui::ElementStyle::builder().color(menuBgColor).build())
-            .visible(false)
-            .children(
-                std::move(escapeOverlayMeme1), std::move(escapeOverlayMeme2), std::move(escapeOverlayMeme3), std::move(escapeOverlayMeme4),
-                std::move(escapeOverlayMeme5), std::move(escapeOverlayMenuRect)
+                                                    )
+                                                    .positionY(300.0f)
+                                                    .extentPercentX(100.0f)
+                                                    .extentY(400.0f)
+                                                    .build()
+                                            )
+                                            .build()
+                                    )
+                                    .style(menuPanelStyle)
+                                    .build()
+                            )
+                            .position({250.0f, 0.0f})
+                            .extentX(500.0f)
+                            .extentPercentY(100.0f)
+                            .build()
+                    )
+                    .addChild(
+                        projnekomata::ui::UIBox::builder()
+                            .child(
+                                projnekomata::ui::UITextInput::create("", Some(std::string("Type a command...")), 16.0f, m_fontFace, [](auto text) {
+                                    projnekomata::cmdRun(text);
+                                })
+                            )
+                            .anchorPreset(projnekomata::ui::AnchorPreset::BottomLeft)
+                            .extentPercentX(100.0f)
+                            .extentY(30.0f)
+                            .build()
+                    )
+                    .build()
             )
+            .style(overlayStyle)
+            .visible(false)
             .build();
 
         m_escOverlay = escapeOverlay.ptr();
@@ -286,7 +238,7 @@ public:
     void onDestroy() override {}
 
     void onUpdate(float dt) override {
-        if (m_handleMouseMovement) {
+        if (m_handleInput) {
             auto mousedelta = Input::get().mouseDelta();
             m_rotationYaw += mousedelta.x() * 0.1f;
             m_rotationPitch -= mousedelta.y() * 0.1f;
@@ -299,59 +251,64 @@ public:
             auto yawQuat = Quaternion::fromAxisAngle(Vector3f(0.0f, 1.0f, 0.0f), degreesToRadians(m_rotationYaw));
             auto pitchQuat = Quaternion::fromAxisAngle(Vector3f(1.0f, 0.0f, 0.0f), degreesToRadians(m_rotationPitch));
 
-            m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity).m_transform3d.m_rotation = yawQuat * pitchQuat;
+            m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d.m_rotation = yawQuat * pitchQuat;
         }
 
         float forwardVel = 0.0f;
         float sidewaysVel = 0.0f;
         float upVel = 0.0f;
 
-        if (Input::get().isKeyDown(Key::W)) forwardVel -= 1.0f;
-        if (Input::get().isKeyDown(Key::S)) forwardVel += 1.0f;
-        if (Input::get().isKeyDown(Key::A)) sidewaysVel += 1.0f;
-        if (Input::get().isKeyDown(Key::D)) sidewaysVel -= 1.0f;
-        if (Input::get().isKeyDown(Key::Space)) upVel += 1.0f;
-        if (Input::get().isKeyDown(Key::C)) upVel -= 1.0f;
-
+        if (m_handleInput) {
+            if (Input::get().isKeyDown(Key::W)) forwardVel -= 1.0f;
+            if (Input::get().isKeyDown(Key::S)) forwardVel += 1.0f;
+            if (Input::get().isKeyDown(Key::A)) sidewaysVel += 1.0f;
+            if (Input::get().isKeyDown(Key::D)) sidewaysVel -= 1.0f;
+            if (Input::get().isKeyDown(Key::Space)) upVel += 1.0f;
+            if (Input::get().isKeyDown(Key::C)) upVel -= 1.0f;
+        }
         auto dp = Vector3f(sidewaysVel, upVel, forwardVel);
 
         if (dp != Vector3f(0.0f)) {
             auto factor = 5.0f;
             if (Input::get().isKeyDown(Key::LShift)) factor = 250.0f;
 
-            auto rotation = m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity).m_transform3d.m_rotation;
+            auto rotation = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d.m_rotation;
             auto delta = dp.normalize() * dt * factor;
             delta = rotation.rotateVector3f(delta);
 
-            m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity).m_transform3d.m_position += delta;
+            m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d.m_position += delta;
         }
 
         if (Input::get().isKeyPressed(Key::Escape)) {
             Input::get().setMouseMode(MouseMode::Normal);
-            m_handleMouseMovement = false;
+            m_handleInput = false;
             m_escOverlay->visible = true;
         }
 
-        auto camPos = m_workingWorld->get<projnekomata::ecs::components::Transform>(m_workingEntity).m_transform3d.m_position;
-        acquireInto<projnekomata::ui::UiText>(m_text->element).text = "";
+        auto camPos = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d.m_position;
+        //acquireInto<projnekomata::ui::UiText>(m_text->element).text = "";
     }
 
-    bool m_handleMouseMovement = true;
+    bool m_handleInput = true;
     float m_rotationPitch = 0.0f;
     float m_rotationYaw = 0.0f;
 
-    projnekomata::graphics::fonts::FontFace m_fontFace;
-    projnekomata::ui::UiNode* m_text = nullptr;
-    projnekomata::ui::UiNode* m_escOverlay = nullptr;
+    projnekomata::FontFace m_fontFace;
+    projnekomata::ui::UINode* m_text = nullptr;
+    projnekomata::ui::UINode* m_escOverlay = nullptr;
 };
 
+class SpinningCubesScript : public projnekomata::ecs::ScriptBase {
+public:
+    SpinningCubesScript() = default;
 
-struct Vertex {
-    Vector3f position;
-    Vector3f normal;
-    Vector3f tangent;
-    Vector2f texcoord;
-    Vector4f color;
+    auto onCreate() -> void override {}
+    auto onUpdate(float dt) -> void override {
+        auto rotation = Quaternion::fromAxisAngle(Vector3f(0.0f, 1.0f, 0.0f), dt * -4.5f);
+
+        auto& transform = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity);
+        transform.m_transform3d.m_rotation = rotation * transform.m_transform3d.m_rotation;
+    }
 };
 
 std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments, float radius) {
@@ -375,8 +332,9 @@ std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments
             Vector2f texcoord = Vector2f(static_cast<float>(lon) / static_cast<float>(lonSegments), static_cast<float>(lat) / static_cast<float>(latSegments));
             Vector3f normal = Vector3f(x, y, z);
             Vector3f tangent = Vector3f(-sinPhi, 0.0f, cosPhi).normalize();
+            Vector4f handedTangent = Vector4f(tangent.x(), tangent.y(), tangent.z(), 1.0f);
 
-            vertices.emplace(Vector3f(x * radius, y * radius, z * radius), normal, tangent, texcoord, Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+            vertices.emplace(Vector3f(x * radius, y * radius, z * radius), normal, handedTangent, texcoord, Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
         }
     }
 
@@ -399,30 +357,29 @@ std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments
 
 
 void onGameInit(Unique<projnekomata::ecs::World>& world) {
-    auto& ts = projnekomata::graphics::texturesystem::TextureManager::get();
+    auto& ts = projnekomata::gfx::TextureManager::get();
 
-    auto matShaderCode = projnekomata::SpirvShaderCode::loadFromFile("../spirv/mainrender_geom.spv").unwrap();
-    auto mainMaterialShader = projnekomata::MaterialShader::builder()
+    auto matShaderCode = projnekomata::gfx::vkrhi::SpirvShaderCode::loadFromFile("//spirv:/mainrender_geom.spv").unwrap();
+    auto mainMaterialShader = projnekomata::gfx::MaterialShader::builder()
         .setPrerastVS(matShaderCode)
         .setFragmentShader(matShaderCode)
         .useInDeferredPass()
-        .setMaterialPropertyStructSize(sizeof(MaterialProps))
+        .setMaterialPropertyStructSize(sizeof(projnekomata::CoreMaterialProps))
         .build();
 
-
-    auto samplerSettings = projnekomata::graphics::texturesystem::SamplerParams::defaultValues()
+    auto samplerSettings = projnekomata::gfx::SamplerParams::defaultValues()
         .setAnisotropy(16.0f);
 
-    projnekomata::graphics::texturesystem::Texture ts1 = ts.loadKtx2TextureAsync("../../Assets/abstractart.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts2 = ts.loadKtx2TextureAsync("../../Assets/fihcalling.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts3 = ts.loadKtx2TextureAsync("../../Assets/ui_test.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts4 = ts.loadKtx2TextureAsync("../../Assets/ui_test2.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts5 = ts.loadKtx2TextureAsync("../../Assets/ui_test3.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts6 = ts.loadKtx2TextureAsync("../../Assets/ui_test4.ktx2", samplerSettings);
-    projnekomata::graphics::texturesystem::Texture ts7 = ts.loadKtx2TextureAsync("../../Assets/ui_test5.ktx2", samplerSettings);
-    auto fnt = projnekomata::graphics::fonts::FontManager::get().loadFont("/usr/share/fonts/noto/NotoSans-Regular.ttf");
+    projnekomata::Texture ts1 = ts.loadKtx2TextureAsync("//assets:/abstractart.ktx2", samplerSettings);
+    projnekomata::Texture ts2 = ts.loadKtx2TextureAsync("//assets:/fihcalling.ktx2", samplerSettings);
+    projnekomata::Texture ts3 = ts.loadKtx2TextureAsync("//assets:/ui_test.ktx2", samplerSettings);
+    projnekomata::Texture ts4 = ts.loadKtx2TextureAsync("//assets:/ui_test2.ktx2", samplerSettings);
+    projnekomata::Texture ts5 = ts.loadKtx2TextureAsync("//assets:/ui_test3.ktx2", samplerSettings);
+    projnekomata::Texture ts6 = ts.loadKtx2TextureAsync("//assets:/ui_test4.ktx2", samplerSettings);
+    projnekomata::Texture ts7 = ts.loadKtx2TextureAsync("//assets:/ui_test5.ktx2", samplerSettings);
+    auto fnt = projnekomata::FontManager::get().loadFont("//assets:/Inconsolata-VariableFont_wdth,wght.ttf");
 
-    auto& mas = projnekomata::meshsystem::MeshAssetStorage::get();
+    auto& mas = projnekomata::gfx::MeshAssetStorage::get();
     auto mesh = mas.allocateMeshAsset();
     mas.getLodList(mesh).maxLodIndex = 3; // set all LOD levels used
     // initially bestLodIndex = ~0 => no LODs are ready (rendering thread will skip rendering).
@@ -462,28 +419,21 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-
-    std::uniform_real_distribution<float> radiusDist(3.0f, 1200.0f);
-    std::uniform_real_distribution<float> thetaDist(0.0f, 2.0f * consts::PI);
-    std::uniform_real_distribution<float> phiDist(0.1f, consts::PI - 1.0f);
-    std::uniform_real_distribution<float> thetaSpeedDist(0.04f, 0.16f);
-    std::uniform_real_distribution<float> phiSpeedDist(0.01f, 0.07f);
-    std::uniform_real_distribution<float> rotationConstDist(0.05f, 0.15f);
-    std::uniform_real_distribution<float> lightradianceDist(60.0f, 20000.0f);
     std::uniform_real_distribution<float> colorDist(0.02f, 1.0f);
     std::uniform_real_distribution<float> roughnessDist(0.0f, 1.0f);
     std::uniform_int_distribution<usize> texIndexDist(0, 7);
     //for (usize i = 0; i < 1990; i++) {
     //    auto ent = world->createEntity();
-    //    world->emplace<projnekomata::ecs::components::Transform>(ent);
-    //    world->emplace<projnekomata::ecs::components::Renderable>(ent, mesh, ts1);
+    //    world->emplace<projnekomata::Transform>(ent);
+    //    world->emplace<projnekomata::Renderable>(ent, mesh, ts1);
     //    world->addScript<MovingScript>(ent, 0.0f, radiusDist(gen), thetaSpeedDist(gen), phiSpeedDist(gen), thetaDist(gen), phiDist(gen), rotationConstDist(gen), rotationConstDist(gen));
     //    if (i % 100 == 0) {
-    //        world->emplace<projnekomata::ecs::components::PointLight>(ent, Vector3f{lightradianceDist(gen), 0.0f, lightradianceDist(gen)});
+    //        world->emplace<projnekomata::PointLight>(ent, Vector3f{lightradianceDist(gen), 0.0f, lightradianceDist(gen)});
     //    }
     //}
 
     // for demo
+
     usize inOneDim = 11;
     float spacing = 2.5f;
     for (usize x = 0; x < inOneDim; x++) {
@@ -491,8 +441,8 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
                 auto scale = Vector3f(1.0f);
                 auto rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
                 auto translation = Vector3f(x * spacing, 0.0f, y * spacing);
-                auto transform = projnekomata::ecs::components::Transform(translation, rotation, scale);
-                auto matprops = MaterialProps()
+                auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
+                auto matprops = projnekomata::CoreMaterialProps()
                     .setRoughness(roughnessDist(gen))
                     .setMetallic(roughnessDist(gen));
 
@@ -509,29 +459,53 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
                     case 7: matprops.setColor(Vector3f(colorDist(gen), colorDist(gen), colorDist(gen))); break;
                 }
 
-                auto matl = projnekomata::Material::create<MaterialProps>(mainMaterialShader, std::move(matprops));
+                auto matl = projnekomata::gfx::Material::create<projnekomata::CoreMaterialProps>(mainMaterialShader, std::move(matprops));
 
                 auto ent = world->createEntity();
-                world->emplace<projnekomata::ecs::components::Transform>(ent, std::move(transform));
-                world->emplace<projnekomata::ecs::components::Renderable>(ent, mesh, matl);
+                world->emplace<projnekomata::LocalTransformComponent>(ent, std::move(transform));
+                world->emplace<projnekomata::WorldTransformComponent>(ent);
+                world->emplace<projnekomata::RenderableComponent>(ent, mesh, matl);
 //                world->addScript<MovingScript>(ent, 0.0f, radiusDist(gen), thetaSpeedDist(gen), phiSpeedDist(gen), thetaDist(gen), phiDist(gen), rotationConstDist(gen), rotationConstDist(gen));
         }
     }
+
     auto scale = Vector3f(1.0f);
     auto rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
     auto translation = Vector3f(10.0f, 40.0f, 10.0f);
-    auto transform = projnekomata::ecs::components::Transform(translation, rotation, scale);
+    auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
 
     auto lightEnt = world->createEntity();
 
-    world->emplace<projnekomata::ecs::components::PointLight>(lightEnt, Vector3f{10000.0f, 10000.0f, 10000.0f});
-    world->emplace<projnekomata::ecs::components::Transform>(lightEnt, std::move(transform));
+    world->emplace<projnekomata::PointlightComponent>(lightEnt, Vector3f{10000.0f, 10000.0f, 10000.0f});
+    world->emplace<projnekomata::LocalTransformComponent>(lightEnt, std::move(transform));
+    world->emplace<projnekomata::WorldTransformComponent>(lightEnt);
 
     auto cameraEnt = world->createEntity();
-    world->emplace<projnekomata::ecs::components::Camera>(cameraEnt, projnekomata::ecs::components::Camera{0.01f, 10000.0f, 90.0f, true});
-    world->emplace<projnekomata::ecs::components::Transform>(cameraEnt);
+    world->emplace<projnekomata::CameraComponent>(cameraEnt, projnekomata::CameraComponent{0.01f, 10000.0f, 90.0f, true});
+    world->emplace<projnekomata::LocalTransformComponent>(cameraEnt);
+    world->emplace<projnekomata::WorldTransformComponent>(cameraEnt);
     world->addScript<CameraScript>(cameraEnt, fnt);
     Input::get().setMouseMode(MouseMode::Captured);
+
+    auto parentOfTheFuckedCubes = world->createEntity();
+    world->emplace<projnekomata::LocalTransformComponent>(parentOfTheFuckedCubes, Vector3f(20.0f, 15.0f, 6.0f), Quaternion::identity(), Vector3f(1.0f, 1.0f, 1.0f));
+    world->emplace<projnekomata::WorldTransformComponent>(parentOfTheFuckedCubes);
+    world->addScript<SpinningCubesScript>(parentOfTheFuckedCubes);
+
+    auto stuff = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_merged_textured_uastc.gltf", mainMaterialShader, Some(parentOfTheFuckedCubes));
+
+    auto parentOfTheMoreFuckedCubes = world->createEntity();
+    world->emplace<projnekomata::LocalTransformComponent>(parentOfTheMoreFuckedCubes, Vector3f(-30.0f, 15.0f, 6.0f), Quaternion::fromEulerAngles(consts::PI / -2.0f, 0.0f, 0.0f), Vector3f(1.0f, 1.0f, 1.0f));
+    world->emplace<projnekomata::WorldTransformComponent>(parentOfTheMoreFuckedCubes);
+
+    auto stuff2 = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_textured_complex_uastc.gltf", mainMaterialShader, Some(parentOfTheMoreFuckedCubes));
+
+    auto lightAttachedToCubes = world->createEntity();
+    // world->emplace<projnekomata::PointlightComponent>(lightAttachedToCubes, Vector3f{100.0f, 100.0f, 100.0f});
+    world->emplace<projnekomata::LocalTransformComponent>(lightAttachedToCubes, Vector3f(10.0f, -4.0f, 6.0f), Quaternion::identity(), Vector3f(1.0f, 1.0f, 1.0f));
+    world->emplace<projnekomata::WorldTransformComponent>(lightAttachedToCubes);
+
+    world->get<projnekomata::ChildrenComponent>(parentOfTheMoreFuckedCubes).m_children.emplace(lightAttachedToCubes);
 }
 
 int main(int argc, char* argv[]) {

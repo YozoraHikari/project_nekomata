@@ -2,7 +2,7 @@ module projnekomata;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_buffer;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanBuffer::VulkanBuffer(std::nullptr_t) {}
 VulkanBuffer::VulkanBuffer(vk::raii::Buffer&& buffer, vma::raii::Allocation&& allocation, u64 size, u8* mVkBufferMemoryHostPtr, vk::DeviceAddress mVkBufferMemoryDevicePtr) : m_vkBuffer(std::move(buffer)), m_vmaAllocation(std::move(allocation)), m_vkBufferMemoryHostPtr(mVkBufferMemoryHostPtr), m_vkBufferMemoryDevicePtr(mVkBufferMemoryDevicePtr), m_size(size) {}

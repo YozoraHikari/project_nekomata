@@ -2,16 +2,16 @@ module projnekomata;
 import projnekomata.cs;
 import :graphics.srt.bindless_descriptor_set_srt;
 
-namespace projnekomata::graphics::srt {
+namespace projnekomata::gfx {
 
 BindlessDescriptorSetShaderResourceTable::BindlessDescriptorSetShaderResourceTable(std::nullptr_t) {}
-BindlessDescriptorSetShaderResourceTable::BindlessDescriptorSetShaderResourceTable(VulkanDescriptorPool&& descriptorPool,
-    VulkanDescriptorSetLayout&& descriptorSetLayout, VulkanDescriptorSet&& descriptorSet, u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount)
+BindlessDescriptorSetShaderResourceTable::BindlessDescriptorSetShaderResourceTable(vkrhi::VulkanDescriptorPool&& descriptorPool,
+    vkrhi::VulkanDescriptorSetLayout&& descriptorSetLayout, vkrhi::VulkanDescriptorSet&& descriptorSet, u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount)
         : m_descriptorPool(std::move(descriptorPool)), m_descriptorSetLayout(std::move(descriptorSetLayout)), m_descriptorSet(std::move(descriptorSet)),
             m_sampledImageIndexAllocator(maxSampledImageCount), m_storageImageIndexAllocator(maxStorageImageCount), m_maxSamplerCount(maxSamplerCount) {}
 
 auto BindlessDescriptorSetShaderResourceTable::create(u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount) -> Unique<BindlessDescriptorSetShaderResourceTable> {
-    auto descriptorSetLayout = VulkanDescriptorSetLayout::builder()
+    auto descriptorSetLayout = vkrhi::VulkanDescriptorSetLayout::builder()
         .addBindingWithFlags(0, maxSampledImageCount, vk::DescriptorType::eSampledImage,
             vk::ShaderStageFlagBits::eFragment,
             vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending
@@ -27,7 +27,7 @@ auto BindlessDescriptorSetShaderResourceTable::create(u32 maxSampledImageCount, 
         .setFlags(vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool)
         .build();
 
-    auto descriptorPool = VulkanDescriptorPool::builder()
+    auto descriptorPool = vkrhi::VulkanDescriptorPool::builder()
         .setMaxSets(1)
         .setUpdateAfterBindPool(true)
         .setFreeDescriptorSetPool(true)
@@ -100,38 +100,39 @@ auto BindlessDescriptorSetShaderResourceTable::allocateSamplerIndices(u32 count,
     }
 }
 
-auto BindlessDescriptorSetShaderResourceTable::bindSampledImage(const VulkanImage& image, SRTResourceIndex index) -> void {
-    VulkanDescriptorSetWriter(m_descriptorSet)
+auto BindlessDescriptorSetShaderResourceTable::bindSampledImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void {
+    vkrhi::VulkanDescriptorSetWriter(m_descriptorSet)
         .bindSampledImage(0, index.imageIndex, image)
         .commit();
 }
-auto BindlessDescriptorSetShaderResourceTable::bindSampledImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void {
-    VulkanDescriptorSetWriter(m_descriptorSet)
+auto BindlessDescriptorSetShaderResourceTable::bindSampledImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void {
+    vkrhi::VulkanDescriptorSetWriter(m_descriptorSet)
         .bindSampledImage(0, index.imageIndex, imageView)
         .commit();
 }
-auto BindlessDescriptorSetShaderResourceTable::bindStorageImage(const VulkanImage& image, SRTResourceIndex index) -> void {
-    VulkanDescriptorSetWriter(m_descriptorSet)
+auto BindlessDescriptorSetShaderResourceTable::bindStorageImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void {
+    vkrhi::VulkanDescriptorSetWriter(m_descriptorSet)
         .bindStorageImage(1, index.imageIndex, image)
         .commit();
 }
-auto BindlessDescriptorSetShaderResourceTable::bindStorageImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void {
-    VulkanDescriptorSetWriter(m_descriptorSet)
+auto BindlessDescriptorSetShaderResourceTable::bindStorageImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void {
+    vkrhi::VulkanDescriptorSetWriter(m_descriptorSet)
         .bindStorageImage(1, index.imageIndex, imageView)
         .commit();
 }
 
-auto BindlessDescriptorSetShaderResourceTable::bindSampler(const VulkanSampler& sampler, SRTResourceIndex index) -> void {
-    VulkanDescriptorSetWriter(m_descriptorSet)
+auto BindlessDescriptorSetShaderResourceTable::bindSampler(const vkrhi::VulkanSampler& sampler, SRTResourceIndex index) -> void {
+    vkrhi::VulkanDescriptorSetWriter(m_descriptorSet)
         .bindSampler(2, index.imageIndex, sampler)
         .commit();
 }
 
-auto BindlessDescriptorSetShaderResourceTable::bindToCommandBuffer(const VulkanCommandBuffer& cmd, const VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void {
+auto BindlessDescriptorSetShaderResourceTable::bindToCommandBuffer(const vkrhi::VulkanCommandBuffer& cmd, const vkrhi::VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void {
     cmd.vkCommandBuffer().bindDescriptorSets(pipelineBindPoint, pipelineLayout.vkPipelineLayout(), 0, *m_descriptorSet.vkDescriptorSet(), nullptr);
 }
-auto BindlessDescriptorSetShaderResourceTable::descriptorSetLayout() const -> const VulkanDescriptorSetLayout& {
+
+auto BindlessDescriptorSetShaderResourceTable::descriptorSetLayout() const -> const vkrhi::VulkanDescriptorSetLayout& {
     return m_descriptorSetLayout;
 }
 
-} // namespace projnekomata::graphics::srt
+} // namespace projnekomata::srt

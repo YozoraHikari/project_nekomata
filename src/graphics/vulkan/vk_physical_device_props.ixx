@@ -5,7 +5,7 @@ import vulkan;
 import vk_mem_alloc;
 import :graphics.vulkan.vk_queue_family_swizzling;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 enum class PhysicalDevicePropertyQueryErrorKind {
     MissingKhrSwapchain,
@@ -28,7 +28,6 @@ enum class PhysicalDevicePropertyQueryErrorKind {
     MissingVk10IndependentBlend,
     MissingVk10ShaderImageGatherExtended,
     MissingVk10SamplerAnisotropy,
-    MissingExtImageViewMinLod,
 };
 
 struct PhysicalDevicePropertyQueryError {
@@ -96,9 +95,6 @@ struct PhysicalDevicePropertyQueryError {
                 break;
             case PhysicalDevicePropertyQueryErrorKind::MissingVk10ShaderImageGatherExtended:
                 cause = "Missing Vulkan 1.0 feature shaderImageGatherExtended";
-                break;
-            case PhysicalDevicePropertyQueryErrorKind::MissingExtImageViewMinLod:
-                cause = "Missing Vulkan extension VK_EXT_image_view_min_lod";
                 break;
         }
         return cause;
@@ -212,4 +208,4 @@ public:
     Vec<vk::PresentModeKHR> m_presentModes     = Vec<vk::PresentModeKHR>::create();
 };
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

@@ -397,6 +397,24 @@ public:
         return *this / length();
     }
 
+    [[nodiscard]] Matrix round() const {
+        Matrix result;
+        for (usize col = 0; col < NCols; col++)
+            for (usize row = 0; row < NRows; row++)
+                result.m_data[col][row] = std::round(m_data[col][row]);
+        return result;
+    }
+
+    // --------------------------------------------------------------------------------------------------------------------------------------------------------
+    // Decomposition
+    [[nodiscard]] Matrix<T, 1, 3> decomposePosition() const requires (NCols == 4 && NRows == 4) {
+        return {
+            m_data[0, 3],
+            m_data[1, 3],
+            m_data[2, 3]
+        };
+    }
+
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Matrix Inverse
 
@@ -408,6 +426,29 @@ public:
 
         // TODO: Add a fallback later. For the moment it's not necessary.
         return None;
+    }
+
+    [[nodiscard]] Matrix inverseRigid() const requires (NCols == 4 && NRows == 4) {
+        Matrix<T, 3, 3> rotMat = {
+            m_data[0, 0], m_data[0, 1], m_data[0, 2],
+            m_data[1, 0], m_data[1, 1], m_data[1, 2],
+            m_data[2, 0], m_data[2, 1], m_data[2, 2]
+        };
+        Matrix<T, 1, 3> transl = {
+            m_data[0, 3],
+            m_data[1, 3],
+            m_data[2, 3]
+        };
+
+        auto rotInverse = rotMat.transpose(); // for rotation matrices transposition is inversion
+        auto translInverse = rotInverse * transl * -1.0f;
+
+        return {
+            rotInverse[0, 0], rotInverse[0, 1], rotInverse[0, 2], translInverse[0, 0],
+            rotInverse[1, 0], rotInverse[1, 1], rotInverse[1, 2], translInverse[1, 0],
+            rotInverse[2, 0], rotInverse[2, 1], rotInverse[2, 2], translInverse[2, 0],
+            T(0),             T(0),             T(0),             T(1)
+        };
     }
 
     /// Inverts a 1x1 matrix.
@@ -434,7 +475,11 @@ public:
         T d = mat[1, 1];
 
         T det = a * d - b * c;
-        if (std::abs(det) < consts::epsilonValue<T>()) {
+
+        T scale = std::max({ std::abs(a), std::abs(b), std::abs(c), std::abs(d) });
+        T threshold = consts::epsilonValue<T>() * scale * scale * scale;
+
+        if (std::abs(det) < threshold) {
             return None;
         }
 
@@ -466,7 +511,14 @@ public:
         T c22 =  m00 * m11 - m01 * m10;
 
         T det = m00 * c00 + m01 * c10 + m02 * c20;
-        if (std::abs(det) < consts::epsilonValue<T>()) {
+        T scale = std::max({
+            std::abs(m00), std::abs(m01), std::abs(m02),
+            std::abs(m10), std::abs(m11), std::abs(m12),
+            std::abs(m20), std::abs(m21), std::abs(m22)
+        });
+        T threshold = consts::epsilonValue<T>() * scale * scale * scale;
+
+        if (std::abs(det) < threshold) {
             return None;
         }
 
@@ -506,7 +558,16 @@ public:
         T c0 = m02 * m13 - m03 * m12;
 
         T det = s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0;
-        if (std::abs(det) < consts::epsilonValue<T>()) {
+
+        T scale = std::max({
+            std::abs(m00), std::abs(m01), std::abs(m02), std::abs(m03),
+            std::abs(m10), std::abs(m11), std::abs(m12), std::abs(m13),
+            std::abs(m20), std::abs(m21), std::abs(m22), std::abs(m23),
+            std::abs(m30), std::abs(m31), std::abs(m32), std::abs(m33)
+        });
+        T threshold = consts::epsilonValue<T>() * scale * scale * scale;
+
+        if (std::abs(det) < threshold) {
             return None;
         }
 

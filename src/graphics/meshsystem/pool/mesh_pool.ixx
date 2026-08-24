@@ -5,7 +5,7 @@ import vulkan;
 import vk_mem_alloc;
 import :graphics.vulkan.vk_buffer;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx {
 
 struct SlabAllocationRef {
     /// Index of the slab within the pool allocated from
@@ -51,7 +51,7 @@ struct BufferPoolConfig {
     Slice<const u32> queueFamilyIndices;
     vma::MemoryUsage memoryUsage;
     vk::MemoryPropertyFlags memoryRequiredFlags;
-    VulkanBufferMemoryMapping hostMemoryMapping;
+    vkrhi::VulkanBufferMemoryMapping hostMemoryMapping;
 };
 
 class BufferPool {
@@ -73,10 +73,10 @@ public:
 
 private:
     struct Slab {
-        VulkanBuffer buffer = nullptr;
+        vkrhi::VulkanBuffer buffer = nullptr;
         vma::raii::VirtualBlock virtualBlock = nullptr;
         u64 usedBytes = 0;
-        Slab(VulkanBuffer&& buf, vma::raii::VirtualBlock&& virtualBlk) : buffer(std::move(buf)), virtualBlock(std::move(virtualBlk)) {}
+        Slab(vkrhi::VulkanBuffer&& buf, vma::raii::VirtualBlock&& virtualBlk) : buffer(std::move(buf)), virtualBlock(std::move(virtualBlk)) {}
 
         static auto create(const BufferPoolConfig& cfg) -> Slab;
 
@@ -86,9 +86,9 @@ private:
     };
 
     struct DedicatedAllocation {
-        Unique<VulkanBuffer> buffer = nullptr;
+        Unique<vkrhi::VulkanBuffer> buffer = nullptr;
 
-        DedicatedAllocation(Unique<VulkanBuffer>&& buf) : buffer(std::move(buf)) {}
+        DedicatedAllocation(Unique<vkrhi::VulkanBuffer>&& buf) : buffer(std::move(buf)) {}
 
         static auto create(u64 byteSize, const BufferPoolConfig& cfg) -> DedicatedAllocation;
     };

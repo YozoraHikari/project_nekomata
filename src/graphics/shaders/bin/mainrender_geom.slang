@@ -10,7 +10,7 @@ struct ObjectUniforms {
 struct Vertex {
     float3 position;
     float3 normal;
-    float3 tangent;
+    float4 tangent;
     float2 texcoord;
     float4 color;
 };
@@ -42,32 +42,34 @@ struct PushConstants {
 
 struct VSOut {
     float4 position : SV_Position;
-    float4 positionCS : TEXCOORD0;
-    float4 prevPositionCS : TEXCOORD1;
+    float4 mvCurrentPosition : TEXCOORD0;
+    float4 mvPrevPosition : TEXCOORD1;
     float2 uv : TEXCOORD2;
     float3 normal : TEXCOORD3;
     float3 tangent : TEXCOORD4;
+    nointerpolation float tangentHandedness : TEXCOORD5;
 }
 
 [shader("vertex")]
 VSOut main(uint vertexID: SV_VulkanVertexID) {
     float3 position = s_pushConstants.vertexbuffer[vertexID].position;
     float3 normal = s_pushConstants.vertexbuffer[vertexID].normal;
-    float3 tangent = s_pushConstants.vertexbuffer[vertexID].tangent;
+    float4 tangent = s_pushConstants.vertexbuffer[vertexID].tangent;
     float2 texcoord = s_pushConstants.vertexbuffer[vertexID].texcoord;
 
     float4 positionh = float4(position, 1.0f);
 
-    float4 ndcPos = mul(s_pushConstants.globalData.projview, mul(s_pushConstants.data.model, positionh));
-    float4 ndcPosPrev = mul(s_pushConstants.globalData.prevProjview, mul(s_pushConstants.data.prevModel, positionh));
+    float4 currentWorldspacePos = mul(s_pushConstants.data.model, positionh);
+    float4 prevWorldspacePos = mul(s_pushConstants.data.prevModel, positionh);
 
     VSOut output;
-    output.position = ndcPos;
-    output.positionCS = ndcPos;
-    output.prevPositionCS = ndcPosPrev;
+    output.position = mul(s_pushConstants.globalData.jitteredProjview, currentWorldspacePos);
+    output.mvCurrentPosition = mul(s_pushConstants.globalData.projview, currentWorldspacePos);
+    output.mvPrevPosition = mul(s_pushConstants.globalData.projview, prevWorldspacePos);
     output.uv = texcoord;
     output.normal = mul(s_pushConstants.data.normalMatrix, normal);
-    output.tangent = mul(float3x3(s_pushConstants.data.model), tangent);
+    output.tangent = mul(float3x3(s_pushConstants.data.model), tangent.xyz);
+    output.tangentHandedness = tangent.w;
 
     return output;
 }
@@ -129,7 +131,7 @@ FSOut main(VSOut input) {
     float3 norm;
     if (props.flags & kHasNormalMap) {
         float3 t = normalize(input.tangent);
-        float3 b = cross(n, t);
+        float3 b = cross(n, t) * input.tangentHandedness;
         float3x3 tbn = float3x3(t, b, n);
         float2 nm = resolveTexture2DHandle(props.normalMapTex).Sample(resolveSamplerHandle(props.normalMapTex), input.uv).rg * 2.0f - 1.0f;
         float3 mappednorm = float3(nm, sqrt(saturate(1.0f - dot(nm, nm))));
@@ -142,9 +144,10 @@ FSOut main(VSOut input) {
     float2 pn = octahedronNormalPack(norm);
     float2 pgn = octahedronNormalPack(n);
 
-    float2 ndcCurrent = input.positionCS.xy / input.positionCS.w;
-    float2 ndcPrev    = input.prevPositionCS.xy / input.prevPositionCS.w;
+    float2 ndcCurrent = input.mvCurrentPosition.xy / input.mvCurrentPosition.w;
+    float2 ndcPrev    = input.mvPrevPosition.xy / input.mvPrevPosition.w;
     float2 velocity = (ndcCurrent - ndcPrev) * 0.5f;
+
 /*
     float2 pixelpos = input.position.xy - 0.5f;
     uint2 quadpos = uint2(floor(pixelpos / 2.0f));

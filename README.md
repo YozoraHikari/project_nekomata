@@ -75,4 +75,6 @@ Copyright (c) 2026 YozoraHoshikuzu
 
 This project is licensed under the Apache 2.0 license. See the LICENSE file for more information.
 
-This project makes use of the Iosevka font, which is Copyright (c) 2015-2026, Renzhi Li (aka. Belleve Invis, belleve@typeof.net), licensed under the SIL Open Font License, Version 1.1. See the [Assets/LICENSE-IosevkaTerm-Light.md](Assets/LICENSE-IosevkaTerm-Light.md) file located in this repository for more information.
+This project makes use of several third-party works, which are licensed under their respective licenses. See files
+[Assets/LICENSE-Inconsolata.md](Assets/LICENSE-Inconsolata.md), [Assets/LICENSE-IosevkaTerm-Light.md](Assets/LICENSE-IosevkaTerm-Light.md),
+[Assets/deccer-cubes-main/LICENSE](Assets/deccer-cubes-main/LICENSE) for more information.

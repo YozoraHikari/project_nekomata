@@ -11,7 +11,7 @@ import :core.ecs.world.transform;
 import :graphics.vulkan.vk_query_pool;
 import :graphics.rendering.shared_rendering_resources;
 
-export namespace projnekomata::graphics {
+export namespace projnekomata::gfx {
 
 struct Transforms {
     Matrix4x4f model;
@@ -37,45 +37,45 @@ public:
     FrameRenderingResources(u32 initialMaxObjects);
 
 
-    auto commandPool() -> VulkanCommandPool& { return m_commandPool; }
-    auto commandBuffer() -> VulkanCommandBuffer& { return m_commandBuffer; }
+    auto commandPool() -> vkrhi::VulkanCommandPool& { return m_commandPool; }
+    auto commandBuffer() -> vkrhi::VulkanCommandBuffer& { return m_commandBuffer; }
 
-    auto transformsBuffer() -> VulkanBuffer& { return m_transformsBuffer; }
-    auto globalDataBuffer() -> VulkanBuffer& { return m_globalDataBuffer; }
-    auto pointlightsBuffer() -> VulkanBuffer& { return m_pointlightsBuffer; }
-    auto textureToSrtImageIDBuffer() -> VulkanBuffer& { return m_textureToSrtImageIDBuffer; }
-    auto textureToSrtSamplerIDBuffer() -> VulkanBuffer& { return m_textureToSrtSamplerIDBuffer; }
-    auto materialPropBuffer(usize structSize) -> VulkanBuffer& { return m_materialPropBuffersBySize[structSize]; }
+    auto transformsBuffer() -> vkrhi::VulkanBuffer& { return m_transformsBuffer; }
+    auto globalDataBuffer() -> vkrhi::VulkanBuffer& { return m_globalDataBuffer; }
+    auto pointlightsBuffer() -> vkrhi::VulkanBuffer& { return m_pointlightsBuffer; }
+    auto textureToSrtImageIDBuffer() -> vkrhi::VulkanBuffer& { return m_textureToSrtImageIDBuffer; }
+    auto textureToSrtSamplerIDBuffer() -> vkrhi::VulkanBuffer& { return m_textureToSrtSamplerIDBuffer; }
+    auto materialPropBuffer(usize structSize) -> vkrhi::VulkanBuffer& { return m_materialPropBuffersBySize[structSize]; }
 
-    auto frameDoneFence() -> VulkanFence& { return m_frameDoneFence; }
-    auto imageAcquiredSemaphore() -> VulkanBinarySemaphore& { return m_imageAcquiredSemaphore; }
+    auto frameDoneFence() -> vkrhi::VulkanFence& { return m_frameDoneFence; }
+    auto imageAcquiredSemaphore() -> vkrhi::VulkanBinarySemaphore& { return m_imageAcquiredSemaphore; }
 
-    auto prepareBuffers(MRThreadsSharedDataLeaf& renderingData, SharedRenderingResources& sharedRendResources, ecs::components::Camera camera, const ecs::components::Transform& cameraTransform, float renderAspectRatio, u64 frameIndex) -> void;
+    auto prepareBuffers(MRThreadsSharedDataLeaf& renderingData, SharedRenderingResources& sharedRendResources, CameraComponent camera, const WorldTransformComponent& cameraTransform, float renderAspectRatio, u64 frameIndex) -> void;
 
 private:
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Commands
-    VulkanCommandPool m_commandPool = nullptr;
-    VulkanCommandBuffer m_commandBuffer = nullptr;
+    vkrhi::VulkanCommandPool m_commandPool = nullptr;
+    vkrhi::VulkanCommandBuffer m_commandBuffer = nullptr;
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Buffers
-    VulkanBuffer m_globalDataBuffer = nullptr;
-    VulkanBuffer m_transformsBuffer = nullptr;
-    VulkanBuffer m_pointlightsBuffer = nullptr;
+    vkrhi::VulkanBuffer m_globalDataBuffer = nullptr;
+    vkrhi::VulkanBuffer m_transformsBuffer = nullptr;
+    vkrhi::VulkanBuffer m_pointlightsBuffer = nullptr;
 
-    VulkanBuffer m_textureToSrtImageIDBuffer = nullptr;
-    VulkanBuffer m_textureToSrtSamplerIDBuffer = nullptr;
-    HashMap<usize, VulkanBuffer> m_materialPropBuffersBySize = HashMap<usize, VulkanBuffer>::create();
+    vkrhi::VulkanBuffer m_textureToSrtImageIDBuffer = nullptr;
+    vkrhi::VulkanBuffer m_textureToSrtSamplerIDBuffer = nullptr;
+    HashMap<usize, vkrhi::VulkanBuffer> m_materialPropBuffersBySize = HashMap<usize, vkrhi::VulkanBuffer>::create();
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Synchronization
 
     /// Signaled after the frame has completed rendering
-    VulkanFence m_frameDoneFence = nullptr;
+    vkrhi::VulkanFence m_frameDoneFence = nullptr;
 
     /// Signaled after a successful swapchain image acquire
-    VulkanBinarySemaphore m_imageAcquiredSemaphore = nullptr;
+    vkrhi::VulkanBinarySemaphore m_imageAcquiredSemaphore = nullptr;
 };
 
 }

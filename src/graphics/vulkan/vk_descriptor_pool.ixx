@@ -6,7 +6,7 @@ import :graphics.vulkan.vk_gpu_obrm;
 import :graphics.vulkan.vk_descriptor_set_layout;
 import :graphics.vulkan.vk_descriptor_set;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 class VulkanDescriptorPoolBuilder;
 
 class VulkanDescriptorPool {

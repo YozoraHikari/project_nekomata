@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.shadercache;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 ShaderCache::ShaderCache(bool usePipelineBinaries) {
     if (usePipelineBinaries) {
@@ -19,4 +19,4 @@ auto ShaderCache::makeShaderCacheDirectoryPath() -> std::filesystem::path {
     return "./shadercache_placeholder_name/";
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

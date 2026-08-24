@@ -137,7 +137,7 @@ private:
 template <u32 MaxElements, usize ChunkSizeHint = 65536> class NotypeFreelistPoolV2 {
 public:
     NotypeFreelistPoolV2(std::nullptr_t) noexcept {}
-    NotypeFreelistPoolV2(u8* storage, usize elemSize) : m_storage(storage), m_elemSize(elemSize) {}
+    NotypeFreelistPoolV2(u8* storage, usize elemSize) : m_elemSize(elemSize), m_storage(storage) {}
     ~NotypeFreelistPoolV2() {
         if (m_storage) Mem::vmDestroy(m_storage, MaxElements);
         debug_assert(m_aliveCount.load(std::memory_order_acquire) == 0, "some of the allocated objects in a NotypeFreelistPoolV2 were not freed before its destruction");

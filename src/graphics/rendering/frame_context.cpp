@@ -19,7 +19,7 @@ import :core.overloaded;
 import :graphics.rendering.frame_context;
 import :graphics.materialsystem.mat_manager;
 
-namespace projnekomata::graphics {
+namespace projnekomata::gfx {
 
 using namespace projnekomata::math;
 
@@ -27,12 +27,12 @@ FrameContext::FrameContext(std::nullptr_t) {  }
 FrameContext::FrameContext() {
     m_frameRenderingResources = FrameRenderingResources(2048);
 
-    m_timestampsQueryPool = VulkanQueryPool::create(vk::QueryType::eTimestamp, 6, {});
+    m_timestampsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::eTimestamp, 6, {});
 
-    bool supportsPipelineStatisticsQuery = VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
+    bool supportsPipelineStatisticsQuery = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
 
     if (supportsPipelineStatisticsQuery) {
-        m_pipelineStatisticsQueryPool = VulkanQueryPool::create(vk::QueryType::ePipelineStatistics, 1,
+        m_pipelineStatisticsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::ePipelineStatistics, 1,
             vk::QueryPipelineStatisticFlagBits::eVertexShaderInvocations
                 | vk::QueryPipelineStatisticFlagBits::eTessellationControlShaderPatches
                 | vk::QueryPipelineStatisticFlagBits::eTessellationEvaluationShaderInvocations
@@ -55,12 +55,11 @@ inline vk::Offset3D toOffset3D(const vk::Extent3D& extent) {
 
 inline bool isObjectVisible(
     Vector3f objectPos, float objectBoundingSphereRadius,
-    Vector3f cameraPos, Quaternion cameraRotation,
+    Matrix4x4f& cameraInverse,
     float perspectiveFov, float perspectiveAspectRatio, float perspectiveNear, float perspectiveFar
 ) {
-    auto objectToCamera = cameraPos - objectPos;
-    auto cameraRotationConj = cameraRotation.conjugate();
-    auto camspaceObjectPos = cameraRotationConj.rotateVector3f(objectToCamera);
+    auto camspaceObjectPosHm = cameraInverse * Vector4f(objectPos.x(), objectPos.y(), objectPos.z(), 1.0f);
+    auto camspaceObjectPos = Vector3f(camspaceObjectPosHm.x(), camspaceObjectPosHm.y(), camspaceObjectPosHm.z()) * -1.0f;
 
     // Near/far planes test
     if (camspaceObjectPos.z() + objectBoundingSphereRadius < perspectiveNear) return false;
@@ -80,10 +79,10 @@ inline bool isObjectVisible(
     return true;
 }
 
-auto FrameContext::execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources, VulkanSwapchain& swapchain,
+auto FrameContext::execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources, vkrhi::VulkanSwapchain& swapchain,
     MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult {
     auto imageAcquire = swapchain.acquireNextImage(std::numeric_limits<u64>::max(), m_frameRenderingResources.imageAcquiredSemaphore());
-    bool supportsPipelineStatisticsQuery = VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
+    bool supportsPipelineStatisticsQuery = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
 
     bool shouldRecreateSwapchainAfter = imageAcquire.second;
     if (imageAcquire.first.isNone()) {
@@ -97,8 +96,8 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // ---------------------------------------------------------------- Render Pass starts here ----------------------------------------------------------------
 
-    ecs::components::Camera firstCamera;
-    ecs::components::Transform firstCameraTransform;
+    CameraComponent firstCamera;
+    WorldTransformComponent firstCameraTransform;
     bool firstCameraFound = false;
 
     for (auto [i, camera] : renderingData.m_cameras.m_storage.iter().enumerate()) {
@@ -109,8 +108,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         if (renderingData.m_transforms.containsEntity(cameraEntitySparseIndex)) {
             firstCameraTransform = renderingData.m_transforms.get(cameraEntitySparseIndex);
         } else {
-            firstCameraTransform = ecs::components::Transform{};
-            firstCameraTransform.m_transform3d = math::Transform3D::identity();
+            firstCameraTransform = WorldTransformComponent{};
             log::warn("Camera #{} has no transform!", i);
         }
         firstCameraFound = true;
@@ -119,15 +117,16 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     if (!firstCameraFound) {
         log::warn("No camera found! Will use a default one");
-        firstCamera = ecs::components::Camera{};
+        firstCamera = CameraComponent{};
         firstCamera.nearPlane = 0.1f;
         firstCamera.farPlane = 1000.0f;
         firstCamera.fov = 75.0f;
         firstCamera.renderingEnable = true;
-        firstCameraTransform = ecs::components::Transform{};
-        firstCameraTransform.m_transform3d = math::Transform3D::identity();
-        firstCameraTransform.m_transform3d.m_position = math::Vector3f(0.0f, 0.0f, 1.2f);
+        firstCameraTransform = WorldTransformComponent{};
     }
+    auto cameraPos = firstCameraTransform.m_transform.decomposePosition();
+
+    auto cameraViewMatrix = firstCameraTransform.m_transform.inverseRigid();
 
     math::Vector2f renderingArea = Vector2f(static_cast<f32>(transientRenderingResources.postSmaaImage().extent().width), static_cast<f32>(transientRenderingResources.postSmaaImage().extent().height));
 
@@ -143,7 +142,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     auto beginInfo = vk::CommandBufferBeginInfo{}
         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    vkCheckResult(cb.begin(beginInfo));
+    vkrhi::vkCheckResult(cb.begin(beginInfo));
 
     if (recordStatistics) {
         cb.resetQueryPool(m_timestampsQueryPool.vkQueryPool(), 0, m_timestampsQueryPool.queryCount());
@@ -152,7 +151,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // ---- Font Rasterization ---------------------------------------------------------------------------------------------------------------------------------
 
-    VulkanBuffer stagingBuffer = nullptr;
+    vkrhi::VulkanBuffer stagingBuffer = nullptr;
 
     auto& fontAtlas = threadSharedData.m_fontAtlas;
     auto& pixelBuffer = renderingData.m_fontsUploadPixelBuffer;
@@ -161,11 +160,20 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     if (bufferImageCopyRegions.len() > 0) {
         if (pixelBuffer.len() == 0) panic("font data copy was requested, but the pixel buffer len is 0");
-        stagingBuffer = VulkanBuffer::create(pixelBuffer.len(), vk::BufferUsageFlagBits::eTransferSrc, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, {}, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics]);
+
+        stagingBuffer = vkrhi::VulkanBuffer::builder()
+            .len(pixelBuffer.len())
+            .usage(vk::BufferUsageFlagBits::eTransferSrc)
+            .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+            .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+            .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+            .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+            .build();
+
         memcpy(stagingBuffer.memoryHostPtr(), pixelBuffer.data(), pixelBuffer.len());
 
         // Prepare for copy
-        auto barriers = VulkanPipelineBarriers::builder();
+        auto barriers = vkrhi::VulkanPipelineBarriers::builder();
         for (const auto& atlasImageIndex : bufferImageCopyRegions.keys()) {
             // For images that are newly created, transition from eUndefined instead
             if (newImageIndices.contains(atlasImageIndex)) {
@@ -196,7 +204,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         }
 
         // Prepare for usage
-        auto barriers2 = VulkanPipelineBarriers::builder();
+        auto barriers2 = vkrhi::VulkanPipelineBarriers::builder();
         for (const auto& atlasImageIndex : bufferImageCopyRegions.keys()) {
             barriers2.insertImageMemoryBarrier(fontAtlas.m_atlasTextures[atlasImageIndex].image,
                 vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eCopy, vk::AccessFlagBits2::eTransferWrite,
@@ -205,72 +213,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         }
         barriers2.flush(m_frameRenderingResources.commandBuffer());
     }
-/*
-    // see if there are new glyphs to rasterize in the system text..
-    auto all_texts_iter = renderingData.m_uiDrawCmds.iter()
-        .filterMap([&](const auto& x) -> Option<fonts::FontRasterBatch> {
-            if (!matches<ui::UiTextDrawCmd>(x)) return None;
-            auto cmd = acquireInto<ui::UiTextDrawCmd>(x);
-            auto batch = fonts::FontManager::get().findAndBatchMissingGlyphs(cmd.face, sharedRenderingResources.m_fontAtlas, cmd.text, cmd.size);
-            return batch;
-        })
-        .collect<Vec>();
 
-    if (!all_texts_iter.isEmpty()) {
-        auto pixelBuffer = Vec<u8>::create();
-        auto newImageIndices = Vec<u32>::create();
-        auto bufferImageCopyRegions = HashMap<u32, Vec<vk::BufferImageCopy2>>::create();
-        fonts::FontRasterInfo rasterInfo = { all_texts_iter.asSlice(), sharedRenderingResources.m_fontAtlas, bufferImageCopyRegions, pixelBuffer, newImageIndices };
-        fonts::FontManager::get().rasterizeGlyphs(rasterInfo);
-
-        // there can be glyphs that don't rasterize to anything but appeared in the batch, so the buffer might be zero-sized
-        if (pixelBuffer.len() != 0) {
-            stagingBuffer = VulkanBuffer::create(pixelBuffer.len(), vk::BufferUsageFlagBits::eTransferSrc, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, {}, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics]);
-            memcpy(stagingBuffer.memoryHostPtr(), pixelBuffer.data(), pixelBuffer.len());
-
-            // Prepare for copy
-            auto barriers = VulkanPipelineBarriers::builder();
-            for (const auto& atlasImageIndex : bufferImageCopyRegions.keys()) {
-                // For images that are newly created, transition from eUndefined instead
-                if (newImageIndices.contains(atlasImageIndex)) {
-                    barriers.insertImageMemoryBarrier(sharedRenderingResources.m_fontAtlas.m_atlasTextures[atlasImageIndex].image,
-                        vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone,
-                        vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eCopy, vk::AccessFlagBits2::eTransferWrite
-                    );
-                    continue;
-                }
-
-                // Transition from eShaderReadOnlyOptimal for all others
-                barriers.insertImageMemoryBarrier(sharedRenderingResources.m_fontAtlas.m_atlasTextures[atlasImageIndex].image,
-                    vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderRead,
-                    vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eCopy, vk::AccessFlagBits2::eTransferWrite
-                );
-            }
-            barriers.flush(m_frameRenderingResources.commandBuffer());
-
-            // Run copies
-            for (const auto& [atlasImageIndex, regions] : bufferImageCopyRegions.iter()) {
-                auto copyInfo = vk::CopyBufferToImageInfo2{}
-                    .setDstImage(sharedRenderingResources.m_fontAtlas.m_atlasTextures[atlasImageIndex].image.vkImage())
-                    .setDstImageLayout(vk::ImageLayout::eTransferDstOptimal)
-                    .setSrcBuffer(stagingBuffer.vkBuffer())
-                    .setRegions(regions);
-
-                cb.copyBufferToImage2(copyInfo);
-            }
-
-            // Prepare for usage
-            auto barriers2 = VulkanPipelineBarriers::builder();
-            for (const auto& atlasImageIndex : bufferImageCopyRegions.keys()) {
-                barriers2.insertImageMemoryBarrier(sharedRenderingResources.m_fontAtlas.m_atlasTextures[atlasImageIndex].image,
-                    vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eCopy, vk::AccessFlagBits2::eTransferWrite,
-                    vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderRead
-                );
-            }
-            barriers2.flush(m_frameRenderingResources.commandBuffer());
-        }
-    }
-*/
     auto vkRenderingArea = vk::Extent2D{transientRenderingResources.postSmaaImage().extent().width, transientRenderingResources.postSmaaImage().extent().height};
     auto viewport = vk::Viewport{}
         .setWidth(static_cast<f32>(vkRenderingArea.width))
@@ -282,7 +225,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // ---- Velocity Buffer Clear ------------------------------------------------------------------------------------------------------------------------------
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.velocityBuffer(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
@@ -305,14 +248,14 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_velbufferBgPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_velbufferBgLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_velbufferBgLayout, vk::PipelineBindPoint::eGraphics);
     cb.pushConstants<vk::DeviceAddress>(sharedRenderingResources.m_velbufferBgLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, globaldataAddr);
     cb.draw(3, 1, 0, 0);
     cb.endRendering();
 
     // ---- Deferred Geometry Stage ----------------------------------------------------------------------------------------------------------------------------
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.overdrawCountersImage(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eClear, vk::AccessFlagBits2::eTransferWrite
@@ -321,7 +264,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     cb.clearColorImage(transientRenderingResources.overdrawCountersImage().vkImage(), vk::ImageLayout::eTransferDstOptimal, vk::ClearColorValue{}.setUint32({0, 0, 0, 0}), transientRenderingResources.overdrawCountersImage().subresourceRangeFull());
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.overdrawCountersImage(),
             vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eClear, vk::AccessFlagBits2::eTransferWrite,
             vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite
@@ -393,7 +336,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     auto& globPipelineLayout = MaterialManager::get().globalPipelineLayout();
 
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), globPipelineLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), globPipelineLayout, vk::PipelineBindPoint::eGraphics);
     auto uboDeviceAddr = m_frameRenderingResources.transformsBuffer().memoryDevicePtr();
 
     struct RenderPushConstantData {
@@ -407,7 +350,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     for (auto [i, renderable] : renderingData.m_renderables.m_storage.iter().enumerate()) {
         // Get the LOD list for the renderable and skip it if no LODs are available
-        auto& lodList = meshsystem::MeshAssetStorage::get().getLodList(renderable.meshAsset);
+        auto& lodList = MeshAssetStorage::get().getLodList(renderable.meshAsset);
         auto bestAvailableLod = lodList.bestLodIndex.load(std::memory_order_acquire);
         if (bestAvailableLod == ~0u) continue;
 
@@ -417,22 +360,22 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         // Pick an LOD
         Vector3f objectPos = Vector3f(0.0f);
         float objectUniformScale = 1.0f;
-        ecs::Entity ent = renderingData.m_renderables.m_sparseToStorage[i];
+        ecs::Entity ent = renderingData.m_renderables.m_storageToEntity[i];
         if (renderingData.m_transforms.containsEntity(ent)) {
-            objectPos = renderingData.m_transforms.get(ent).m_transform3d.m_position;
-            auto transformMatrix = renderingData.m_transforms.get(ent).m_transform3d.computeModelMatrix();
+            auto& transformMatrix = renderingData.m_transforms.get(ent).m_transform;
             float sx = Vector3f(transformMatrix[0, 0], transformMatrix[1, 0], transformMatrix[2, 0]).length();
             float sy = Vector3f(transformMatrix[0, 1], transformMatrix[1, 1], transformMatrix[2, 1]).length();
             float sz = Vector3f(transformMatrix[0, 2], transformMatrix[1, 2], transformMatrix[2, 2]).length();
             objectUniformScale = std::max({sx, sy, sz});
+            objectPos = transformMatrix.decomposePosition();
         }
 
         // See if the object is visible
-        if (!isObjectVisible(objectPos, objectUniformScale * lodList.boundingSphereRadius, firstCameraTransform.m_transform3d.m_position, firstCameraTransform.m_transform3d.m_rotation, degreesToRadians(firstCamera.fov), aspectRatio, firstCamera.nearPlane, firstCamera.farPlane)) {
+        if (!isObjectVisible(objectPos, objectUniformScale * lodList.boundingSphereRadius, cameraViewMatrix, degreesToRadians(firstCamera.fov), aspectRatio, firstCamera.nearPlane, firstCamera.farPlane)) {
             continue;
         }
 
-        float screenPixels = lodList.computeScreenSpaceError(objectPos, firstCameraTransform.m_transform3d.m_position, perspFocalLength, objectUniformScale);
+        float screenPixels = lodList.computeScreenSpaceError(objectPos, cameraPos, perspFocalLength, objectUniformScale);
 
         MeshHysteresisState& hysteresisState = sharedRenderingResources.getHysteresisState(ent.index());
         // Hysteresis states can be reused between entity creations/destructions. This prevents possibly using an unavailable LOD.
@@ -491,7 +434,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // ---- Deferred Lighting Stage ----------------------------------------------------------------------------------------------------------------------------
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.albedoAndRoughnessBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -527,8 +470,8 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     u32 prefilterTextureId = renderingData.m_textureToImageShaderIndexSnapshot[sharedRenderingResources.m_skyPrefilterCubemap.index];
     u32 iblLutTextureId = renderingData.m_textureToImageShaderIndexSnapshot[sharedRenderingResources.m_brdfLUT.index];
     u32 linearSamplerId = renderingData.m_textureToSamplerShaderIndexSnapshot[sharedRenderingResources.m_skyCubemap.index];
-    u32 nearestSamplerId = texturesystem::TextureManager::get().samplerCache().acquireSampler(
-        texturesystem::SamplerParams::defaultValues().setMinFilter(vk::Filter::eNearest).setMagFilter(vk::Filter::eNearest).setMipmapMode(vk::SamplerMipmapMode::eNearest).setMaxLod(0.0f)
+    u32 nearestSamplerId = TextureManager::get().samplerCache().acquireSampler(
+        SamplerParams::defaultValues().setMinFilter(vk::Filter::eNearest).setMagFilter(vk::Filter::eNearest).setMipmapMode(vk::SamplerMipmapMode::eNearest).setMaxLod(0.0f)
     );
 
     auto drawImageAttachmentInfo = vk::RenderingAttachmentInfo{}
@@ -547,7 +490,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_mainLightingPassPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_mainLightingPassLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_mainLightingPassLayout, vk::PipelineBindPoint::eGraphics);
 
     struct LightingStagePushConstantData {
         vk::DeviceAddress globaldataAddr;
@@ -592,22 +535,19 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // ---- SMAA -----------------------------------------------------------------------------------------------------------------------------------------------
 
-    if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), 4);
-    }
 
     auto smaaRtMetrics = Vector4f(1.0f / renderingArea.x(), 1.0f / renderingArea.y(), renderingArea.x(), renderingArea.y());
 
-    auto smaaLinearSamplerSrtID = texturesystem::TextureManager::get().samplerCache().acquireSampler(
-        texturesystem::SamplerParams::defaultValues()
+    auto smaaLinearSamplerSrtID = TextureManager::get().samplerCache().acquireSampler(
+        SamplerParams::defaultValues()
             .setMinFilter(vk::Filter::eLinear)
             .setMagFilter(vk::Filter::eLinear)
             .setMipmapMode(vk::SamplerMipmapMode::eNearest)
             .setMaxLod(0.0f)
     );
 
-    auto smaaNearestSamplerSrtID = texturesystem::TextureManager::get().samplerCache().acquireSampler(
-        texturesystem::SamplerParams::defaultValues()
+    auto smaaNearestSamplerSrtID = TextureManager::get().samplerCache().acquireSampler(
+        SamplerParams::defaultValues()
             .setMinFilter(vk::Filter::eNearest)
             .setMagFilter(vk::Filter::eNearest)
             .setMipmapMode(vk::SamplerMipmapMode::eNearest)
@@ -619,7 +559,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // -------- [Stage 1] Edge detection
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.colorBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -630,6 +570,9 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         )
         .flush(m_frameRenderingResources.commandBuffer());
 
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), 4);
+    }
 
     auto edgesImageAttachmentInfo = vk::RenderingAttachmentInfo{}
         .setImageView(transientRenderingResources.smaaEdgesImage().vkImageViewWholeSize())
@@ -648,7 +591,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_smaaEdgeDetectPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaEdgeDetectLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaEdgeDetectLayout, vk::PipelineBindPoint::eGraphics);
 
     struct SmaaEdgeDetectionPushConstantData {
         Vector4f rtMetrics;
@@ -671,7 +614,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // -------- [Stage 2] Blend weights
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.smaaEdgesImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -699,7 +642,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_smaaBlendWeightPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaBlendWeightLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaBlendWeightLayout, vk::PipelineBindPoint::eGraphics);
 
     struct SmaaBlendWeightPushConstantData {
         Vector4f rtMetrics;
@@ -728,7 +671,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     // -------- [Stage 3] Neighborhood blend
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.smaaWeightsImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -756,7 +699,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_smaaNeighborhoodBlendPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaNeighborhoodBlendLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaNeighborhoodBlendLayout, vk::PipelineBindPoint::eGraphics);
 
     struct SmaaNeighborhoodBlendPushConstantData {
         Vector4f rtMetrics;
@@ -790,7 +733,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     auto smaaNeighborhoodResolvedBufferIndex = transientRenderingResources.postSmaaImageUnormViewIndex();
     auto lastColorBufferIndex = frameParity ? transientRenderingResources.smaaColorResolvedBuffer1UnormViewIndex() : transientRenderingResources.smaaColorResolvedBuffer0UnormViewIndex();
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.postSmaaImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -828,7 +771,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_smaaTemporalResolvePipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaTemporalResolveLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_smaaTemporalResolveLayout, vk::PipelineBindPoint::eGraphics);
 
     struct SmaaTemporalResolvePushConstants {
         Vector4f rtMetrics;
@@ -857,7 +800,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     }
     // ---- Temporary : Quad Overdraw Vis ----------------------------------------------------------------------------------------------------------------------
 /*
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.finalImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite
@@ -880,14 +823,14 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setScissor(0, scissor);
 
     cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_quadOverdrawVisPipeline.vkPipeline());
-    texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_quadOverdrawVisLayout, vk::PipelineBindPoint::eGraphics);
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_quadOverdrawVisLayout, vk::PipelineBindPoint::eGraphics);
     cb.pushConstants<u32>(sharedRenderingResources.m_quadOverdrawVisLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, transientRenderingResources.overdrawCountersImageIndex().imageIndex);
     cb.draw(3, 1, 0, 0);
     cb.endRendering();
 */
     // ---- UI -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.finalImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite
@@ -909,9 +852,9 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.setViewport(0, viewport);
     cb.setScissor(0, scissor);
 
-    auto textInstanceBuffers = Vec<VulkanBuffer>::create();
+    auto textInstanceBuffers = Vec<vkrhi::VulkanBuffer>::create();
 
-    auto queuesForBuffer = VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics];
+    auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     for (const auto& uiDrawCmd : renderingData.m_uiDrawCmds) {
         match(uiDrawCmd,
             [&](const ui::UiRectDrawCmd& drawCmd) {
@@ -954,17 +897,27 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
                     .samplerIndex = samplerIndex
                 };
                 cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_uiTextureRendererPipeline.vkPipeline());
-                texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_uiTextureRendererLayout, vk::PipelineBindPoint::eGraphics);
+                TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_uiTextureRendererLayout, vk::PipelineBindPoint::eGraphics);
                 cb.pushConstants<PushConstants>(sharedRenderingResources.m_uiTextureRendererLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, pushConstants);
                 cb.draw(4, 1, 0, 0);
             },
             [&](const ui::UiTextDrawCmd& drawCmd) {
-                auto shapedText = fonts::FontManager::get().shapeText(drawCmd.face, fontAtlas, drawCmd.text, drawCmd.size);
-                auto buffer = VulkanBuffer::create(shapedText.size() * sizeof(fonts::GlyphInstance), vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, {}, queuesForBuffer);
-                memcpy(buffer.memoryHostPtr(), shapedText.data(), shapedText.size() * sizeof(fonts::GlyphInstance));
+                auto& shapedText = drawCmd.glyphs;
+                if (shapedText.isEmpty()) return;
 
-                u32 sampler2 = texturesystem::TextureManager::get().samplerCache().acquireSampler(
-                    texturesystem::SamplerParams::defaultValues().setMinFilter(vk::Filter::eNearest).setMagFilter(vk::Filter::eNearest).setMipmapMode(vk::SamplerMipmapMode::eNearest).setMaxLod(0.0f)
+                auto buffer = vkrhi::VulkanBuffer::builder()
+                    .len(shapedText.len() * sizeof(GlyphInstance))
+                    .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
+                    .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+                    .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+                    .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+                    .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+                    .build();
+
+                memcpy(buffer.memoryHostPtr(), shapedText.data(), shapedText.size() * sizeof(GlyphInstance));
+
+                u32 sampler2 = TextureManager::get().samplerCache().acquireSampler(
+                    SamplerParams::defaultValues().setMinFilter(vk::Filter::eNearest).setMagFilter(vk::Filter::eNearest).setMipmapMode(vk::SamplerMipmapMode::eNearest).setMaxLod(0.0f)
                 );
                 textInstanceBuffers.emplace(std::move(buffer));
 
@@ -978,14 +931,14 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
                 PushConstants pushConstants = {
                     .instanceBuffer = buffer.memoryDevicePtr(),
-                    .ssGlobalOffset = drawCmd.ssPosition,
+                    .ssGlobalOffset = drawCmd.ssPosition.round(),
                     .screenSize = renderingArea,
                     .samplerSrtID = sampler2,
                     .color = drawCmd.color.asRgba32Float()
                 };
 
                 cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_bitmapFontRendererPipeline.vkPipeline());
-                texturesystem::TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_bitmapFontRendererLayout, vk::PipelineBindPoint::eGraphics);
+                TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_bitmapFontRendererLayout, vk::PipelineBindPoint::eGraphics);
 
                 cb.pushConstants<PushConstants>(sharedRenderingResources.m_bitmapFontRendererLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, pushConstants);
                 cb.draw(4, shapedText.size(), 0, 0);
@@ -995,7 +948,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     cb.endRendering();
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.finalImage(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eTransferSrcOptimal, vk::PipelineStageFlagBits2::eBlit, vk::AccessFlagBits2::eTransferRead
@@ -1030,7 +983,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     cb.blitImage2(blitInfo);
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(currentColorBuffer,
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -1041,9 +994,9 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         )
         .flush(m_frameRenderingResources.commandBuffer());
 
-    vkCheckResult(cb.end());
+    vkrhi::vkCheckResult(cb.end());
 
-    VulkanContext::get().vkQueueGraphics().submitOneCommandBufferWithBinarySemaphores(
+    vkrhi::VulkanContext::get().vkQueueGraphics().submitOneCommandBufferWithBinarySemaphores(
         cb,
         {}, {},
         m_frameRenderingResources.imageAcquiredSemaphore(), swapchainImage.vkSemaphoreImagePresent(),
@@ -1051,8 +1004,8 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         Some(std::ref(m_frameRenderingResources.frameDoneFence()))
     );
 
-    VulkanContext::get().antiLagPacePresent(renderingData.m_frameIndex, 0);
-    auto presentResult = VulkanContext::get().vkQueuePresent().submitPresent(swapchain, swapchainImage.vkSemaphoreImagePresent(), imageAcquire.first.unwrap());
+    vkrhi::VulkanContext::get().antiLagPacePresent(renderingData.m_frameIndex, 0);
+    auto presentResult = vkrhi::VulkanContext::get().vkQueuePresent().submitPresent(swapchain, swapchainImage.vkSemaphoreImagePresent(), imageAcquire.first.unwrap());
 
     if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
         return { .shouldRecreateSwapchain = true, .stepPerFrameResources = true };
@@ -1061,4 +1014,4 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     return { .shouldRecreateSwapchain = shouldRecreateSwapchainAfter, .stepPerFrameResources = true };
 }
 
-} // namespace projnekomata::graphics
+} // namespace projnekomata

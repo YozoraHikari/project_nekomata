@@ -2,7 +2,7 @@ export module projnekomata:graphics.vulkan.vk_image_trait;
 import std;
 import vulkan;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 template <typename T> concept CVulkanImage = requires { typename T::isCVulkanImage; } && requires (const T& t)
 {

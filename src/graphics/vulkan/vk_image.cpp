@@ -2,7 +2,7 @@ module projnekomata;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_image;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanImage::VulkanImage(std::nullptr_t) {}
 VulkanImage::VulkanImage(vk::raii::Image&& image, vma::raii::Allocation&& allocation, vk::raii::ImageView imageViewWholeSize, vk::ImageSubresourceRange imageSubresourceRangeFull, vk::Extent3D extents, u32 arrayLayerCount, u32 mipLevelCount, bool isCubemap, vk::Format format, vk::ImageType type)
@@ -279,4 +279,4 @@ auto VulkanImage::selectImageViewType(vk::ImageType type, u32 arrayLayerCount, b
     return imageViewType;
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

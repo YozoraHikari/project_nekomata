@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.vk_gpu_obrm;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 template class VulkanAsyncRaiiWrapper<vk::raii::CommandPool>;
 template class VulkanAsyncRaiiWrapper<vk::raii::CommandBuffer>;
 template class VulkanAsyncRaiiWrapper<vk::raii::Image>;

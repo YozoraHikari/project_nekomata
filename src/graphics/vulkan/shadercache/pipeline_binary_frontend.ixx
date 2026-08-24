@@ -8,7 +8,7 @@ import :core.storage.sharded_hash_storage;
 import :graphics.vulkan.context;
 import :graphics.vulkan.shadercache.pipeline_sc_concept;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 constexpr u32 uint32Le(u32 x) {
     if constexpr (std::endian::native == std::endian::little) {

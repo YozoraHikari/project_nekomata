@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.context;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanFence::VulkanFence(std::nullptr_t) {}
 VulkanFence::VulkanFence(vk::raii::Fence&& vkFence) : m_vkFence(std::move(vkFence)) {}

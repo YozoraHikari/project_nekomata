@@ -4,11 +4,11 @@ import :core.math;
 
 using namespace projnekomata::math;
 
-export namespace projnekomata::ecs::components {
+export namespace projnekomata {
 
-struct Camera {
-    Camera() = default;
-    Camera(float nearPlane, float farPlane, float fov, bool renderingEnable) : nearPlane(nearPlane), farPlane(farPlane), fov(fov), renderingEnable(renderingEnable) {}
+struct CameraComponent {
+    CameraComponent() = default;
+    CameraComponent(float nearPlane, float farPlane, float fov, bool renderingEnable) : nearPlane(nearPlane), farPlane(farPlane), fov(fov), renderingEnable(renderingEnable) {}
 
     float nearPlane;
     float farPlane;

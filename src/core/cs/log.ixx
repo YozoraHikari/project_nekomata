@@ -75,7 +75,7 @@ inline std::string timestamp() {
     return fmt::format("{:02}:{:02}:{:02}.{:06}", buf.tm_hour, buf.tm_min, buf.tm_sec, us);
 }
 
-template <typename... Args> inline void write(LogLevel level, fmt::format_string<Args...> fmtstr, Args&&... args) {
+inline void write(LogLevel level, fmt::string_view fmtstr, fmt::format_args args) {
     using namespace ansi_codes;
     const auto& m = meta(level);
 
@@ -88,8 +88,8 @@ template <typename... Args> inline void write(LogLevel level, fmt::format_string
 
     fmt::vformat_to(
         std::ostreambuf_iterator<char>(stream),
-        fmtstr.get(),
-        fmt::make_format_args(args...)
+        fmtstr,
+        args
     );
 
     stream << RESET << '\n';
@@ -98,23 +98,23 @@ template <typename... Args> inline void write(LogLevel level, fmt::format_string
 } // namespace impl
 
 template <typename... Args> void trace(fmt::format_string<Args...> fmtstr, Args&&... args) {
-    impl::write(LogLevel::Trace, fmtstr, std::forward<Args>(args)...);
+    impl::write(LogLevel::Trace, fmtstr.get(), fmt::make_format_args(args...));
 }
 
 template <typename... Args> void info(fmt::format_string<Args...> fmtstr, Args&&... args) {
-    impl::write(LogLevel::Info, fmtstr, std::forward<Args>(args)...);
+    impl::write(LogLevel::Info, fmtstr.get(), fmt::make_format_args(args...));
 }
 
 template <typename... Args> void warn(fmt::format_string<Args...> fmtstr, Args&&... args) {
-    impl::write(LogLevel::Warn, fmtstr, std::forward<Args>(args)...);
+    impl::write(LogLevel::Warn, fmtstr.get(), fmt::make_format_args(args...));
 }
 
 template <typename... Args> void error(fmt::format_string<Args...> fmtstr, Args&&... args) {
-    impl::write(LogLevel::Error, fmtstr, std::forward<Args>(args)...);
+    impl::write(LogLevel::Error, fmtstr.get(), fmt::make_format_args(args...));
 }
 
 template <typename... Args> void crit(fmt::format_string<Args...> fmtstr, Args&&... args) {
-    impl::write(LogLevel::Crit, fmtstr, std::forward<Args>(args)...);
+    impl::write(LogLevel::Crit, fmtstr.get(), fmt::make_format_args(args...));
 }
 
 }

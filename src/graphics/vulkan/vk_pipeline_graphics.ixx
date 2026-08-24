@@ -9,7 +9,7 @@ import :graphics.vulkan.context;
 import :graphics.vulkan.shadercache;
 import :graphics.vulkan.vk_spec_constants;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanGraphicsPipelineBuilder;
 class VulkanGraphicsPipeline {
@@ -58,6 +58,7 @@ public:
                 .setPSpecializationInfo(specInfoPtr),
             shader.shaderModuleCreateInfo()
         };
+
         m_shaderStages.emplace(stageTuple);
         return *this;
     }
@@ -233,7 +234,7 @@ private:
     Option<vk::PipelineTessellationStateCreateInfo> m_tessellationState = None;
     Vec<vk::PipelineColorBlendAttachmentState> m_renderingColorAttachmentBlendStates;
     Vec<vk::Format> m_renderingColorAttachmentFormats;
-    Vec<vk::SpecializationInfo> m_specializationInfos;
+    Vec<vk::SpecializationInfo> m_specializationInfos = Vec<vk::SpecializationInfo>::withCapacity(5); // VS + TCS + TES + GS + FS
 
     Vec<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::ShaderModuleCreateInfo>> m_shaderStages = Vec<vk::StructureChain<vk::PipelineShaderStageCreateInfo, vk::ShaderModuleCreateInfo>>::create();
 };

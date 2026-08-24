@@ -4,11 +4,11 @@ import :core.math;
 
 using namespace projnekomata::math;
 
-export namespace projnekomata::ecs::components {
+export namespace projnekomata {
 
-struct PointLight {
-    PointLight() = default;
-    PointLight(Vector3f lightRadiance) : lightRadiance(lightRadiance) {}
+struct PointlightComponent {
+    PointlightComponent() = default;
+    PointlightComponent(Vector3f lightRadiance) : lightRadiance(lightRadiance) {}
 
     Vector3f lightRadiance;
 };

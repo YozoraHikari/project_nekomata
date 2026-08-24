@@ -8,7 +8,7 @@ import :graphics.vulkan.vk_descriptor_set_layout;
 
 using namespace std::string_view_literals;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanPipelineLayoutBuilder;
 class VulkanPipelineLayout {
@@ -64,4 +64,4 @@ private:
     Vec<vk::DescriptorSetLayout> m_descriptorSetLayouts;
 };
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

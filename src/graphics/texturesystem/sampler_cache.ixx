@@ -7,7 +7,7 @@ import projnekomata.cs;
 import vulkan;
 import :graphics.vulkan.vk_sampler;
 
-export namespace projnekomata::graphics::texturesystem {
+export namespace projnekomata::gfx {
 
 struct SamplerParams {
     SamplerParams() = default;
@@ -93,7 +93,7 @@ public:
 
 private:
     struct SamplerCacheEntry {
-        VulkanSampler sampler;
+        vkrhi::VulkanSampler sampler;
         u32 shaderIndex = 0;
     };
 

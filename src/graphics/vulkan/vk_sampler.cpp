@@ -2,7 +2,7 @@ module projnekomata;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_sampler;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanSampler::VulkanSampler(std::nullptr_t) {  }
 VulkanSampler::VulkanSampler(vk::raii::Sampler&& vkSampler)
@@ -29,4 +29,4 @@ auto VulkanSampler::create(vk::Filter minFilter, vk::Filter magFilter, vk::Sampl
     return VulkanSampler(std::move(sampler));
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

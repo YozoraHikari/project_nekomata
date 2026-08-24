@@ -5,7 +5,7 @@ import vulkan;
 import :core.overloaded;
 import :graphics.vulkan.shadercache.pipeline_binary_frontend;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 using ShaderCacheFrontend = FlatVariant<std::monostate, ShaderCachePipelineBinaryFrontend>;
 

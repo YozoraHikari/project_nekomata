@@ -5,7 +5,7 @@ import :graphics.srt.shader_resource_table;
 import :graphics.vulkan.vk_descriptor_set;
 import :graphics.rendering.shared_rendering_resources;
 
-export namespace projnekomata::graphics {
+export namespace projnekomata::gfx {
 
 /// Transient rendering resources house all the data used in a single render step.
 ///
@@ -20,42 +20,42 @@ public:
 
     TransientRenderingResources(vk::Extent2D renderImageExtent, SharedRenderingResources& sharedResources);
 
-    [[nodiscard]] VulkanImage& depthBuffer() { return m_depthBuffer; }
-    [[nodiscard]] VulkanImage& albedoAndRoughnessBuffer() { return m_albedoAndRoughnessBuffer; }
-    [[nodiscard]] VulkanImage& normalBuffer() { return m_normalBuffer; }
-    [[nodiscard]] VulkanImage& metallicAndAoBuffer() { return m_metallicAndAoBuffer; }
-    [[nodiscard]] VulkanImage& velocityBuffer() { return m_velocityBuffer; }
-    [[nodiscard]] VulkanImage& colorBuffer() { return m_colorBuffer; }
-    [[nodiscard]] VulkanImageView& colorBufferUnormView() { return m_colorBufferUnormView; }
-    [[nodiscard]] VulkanImage& smaaColorResolvedBuffer0() { return m_smaaColorResolvedBuffer0; }
-    [[nodiscard]] VulkanImage& smaaColorResolvedBuffer1() { return m_smaaColorResolvedBuffer1; }
-    [[nodiscard]] VulkanImageView& smaaColorResolvedBuffer0UnormView() { return m_smaaColorResolvedBuffer0UnormView; }
-    [[nodiscard]] VulkanImageView& smaaColorResolvedBuffer1UnormView() { return m_smaaColorResolvedBuffer1UnormView; }
-    [[nodiscard]] VulkanImage& finalImage() { return m_finalImage; }
-    [[nodiscard]] VulkanImageView& finalImageUnormView() { return m_finalImageUnormView; }
+    [[nodiscard]] vkrhi::VulkanImage& depthBuffer() { return m_depthBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& albedoAndRoughnessBuffer() { return m_albedoAndRoughnessBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& normalBuffer() { return m_normalBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& metallicAndAoBuffer() { return m_metallicAndAoBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& velocityBuffer() { return m_velocityBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& colorBuffer() { return m_colorBuffer; }
+    [[nodiscard]] vkrhi::VulkanImageView& colorBufferUnormView() { return m_colorBufferUnormView; }
+    [[nodiscard]] vkrhi::VulkanImage& smaaColorResolvedBuffer0() { return m_smaaColorResolvedBuffer0; }
+    [[nodiscard]] vkrhi::VulkanImage& smaaColorResolvedBuffer1() { return m_smaaColorResolvedBuffer1; }
+    [[nodiscard]] vkrhi::VulkanImageView& smaaColorResolvedBuffer0UnormView() { return m_smaaColorResolvedBuffer0UnormView; }
+    [[nodiscard]] vkrhi::VulkanImageView& smaaColorResolvedBuffer1UnormView() { return m_smaaColorResolvedBuffer1UnormView; }
+    [[nodiscard]] vkrhi::VulkanImage& finalImage() { return m_finalImage; }
+    [[nodiscard]] vkrhi::VulkanImageView& finalImageUnormView() { return m_finalImageUnormView; }
 
-    [[nodiscard]] VulkanImage& smaaEdgesImage() { return m_smaaEdgesImage; }
-    [[nodiscard]] VulkanImage& smaaWeightsImage() { return m_smaaWeightsImage; }
+    [[nodiscard]] vkrhi::VulkanImage& smaaEdgesImage() { return m_smaaEdgesImage; }
+    [[nodiscard]] vkrhi::VulkanImage& smaaWeightsImage() { return m_smaaWeightsImage; }
 
-    [[nodiscard]] VulkanImage& postSmaaImage() { return m_postSmaaImage; }
-    [[nodiscard]] VulkanImageView& postSmaaImageUnormView() { return m_postSmaaImageUnormView; }
+    [[nodiscard]] vkrhi::VulkanImage& postSmaaImage() { return m_postSmaaImage; }
+    [[nodiscard]] vkrhi::VulkanImageView& postSmaaImageUnormView() { return m_postSmaaImageUnormView; }
 
-    [[nodiscard]] VulkanImage& overdrawCountersImage() { return m_overdrawCountersImage; }
+    [[nodiscard]] vkrhi::VulkanImage& overdrawCountersImage() { return m_overdrawCountersImage; }
 
-    [[nodiscard]] auto depthBufferIndex() const -> srt::SRTResourceIndex { return m_depthBufferIndex; }
-    [[nodiscard]] auto albedoAndRoughnessBufferIndex() const -> srt::SRTResourceIndex { return m_albedoAndRoughnessBufferIndex; }
-    [[nodiscard]] auto normalBufferIndex() const -> srt::SRTResourceIndex { return m_normalBufferIndex; }
-    [[nodiscard]] auto metallicAndAoBufferIndex() const -> srt::SRTResourceIndex { return m_metallicAndAoBufferIndex; }
-    [[nodiscard]] auto velocityBufferIndex() const -> srt::SRTResourceIndex { return m_velocityBufferIndex; }
-    [[nodiscard]] auto colorBufferIndex() const -> srt::SRTResourceIndex { return m_colorBufferIndex; }
-    [[nodiscard]] auto colorBufferUnormViewIndex() const -> srt::SRTResourceIndex { return m_colorBufferUnormViewIndex; }
-    [[nodiscard]] auto smaaColorResolvedBuffer0UnormViewIndex() const -> srt::SRTResourceIndex { return m_smaaColorResolvedBuffer0UnormViewIndex; }
-    [[nodiscard]] auto smaaColorResolvedBuffer1UnormViewIndex() const -> srt::SRTResourceIndex { return m_smaaColorResolvedBuffer1UnormViewIndex; }
-    [[nodiscard]] auto smaaEdgesImageIndex() const -> srt::SRTResourceIndex { return m_smaaEdgesImageIndex; }
-    [[nodiscard]] auto smaaWeightsImageIndex() const -> srt::SRTResourceIndex { return m_smaaWeightsImageIndex; }
-    [[nodiscard]] auto postSmaaImageIndex() const -> srt::SRTResourceIndex { return m_postSmaaImageIndex; }
-    [[nodiscard]] auto postSmaaImageUnormViewIndex() const -> srt::SRTResourceIndex { return m_postSmaaImageUnormViewIndex; }
-    [[nodiscard]] auto overdrawCountersImageIndex() const -> srt::SRTResourceIndex { return m_overdrawCountersImageIndex; }
+    [[nodiscard]] auto depthBufferIndex()                       const -> SRTResourceIndex { return m_depthBufferIndex;                       }
+    [[nodiscard]] auto albedoAndRoughnessBufferIndex()          const -> SRTResourceIndex { return m_albedoAndRoughnessBufferIndex;          }
+    [[nodiscard]] auto normalBufferIndex()                      const -> SRTResourceIndex { return m_normalBufferIndex;                      }
+    [[nodiscard]] auto metallicAndAoBufferIndex()               const -> SRTResourceIndex { return m_metallicAndAoBufferIndex;               }
+    [[nodiscard]] auto velocityBufferIndex()                    const -> SRTResourceIndex { return m_velocityBufferIndex;                    }
+    [[nodiscard]] auto colorBufferIndex()                       const -> SRTResourceIndex { return m_colorBufferIndex;                       }
+    [[nodiscard]] auto colorBufferUnormViewIndex()              const -> SRTResourceIndex { return m_colorBufferUnormViewIndex;              }
+    [[nodiscard]] auto smaaColorResolvedBuffer0UnormViewIndex() const -> SRTResourceIndex { return m_smaaColorResolvedBuffer0UnormViewIndex; }
+    [[nodiscard]] auto smaaColorResolvedBuffer1UnormViewIndex() const -> SRTResourceIndex { return m_smaaColorResolvedBuffer1UnormViewIndex; }
+    [[nodiscard]] auto smaaEdgesImageIndex()                    const -> SRTResourceIndex { return m_smaaEdgesImageIndex;                    }
+    [[nodiscard]] auto smaaWeightsImageIndex()                  const -> SRTResourceIndex { return m_smaaWeightsImageIndex;                  }
+    [[nodiscard]] auto postSmaaImageIndex()                     const -> SRTResourceIndex { return m_postSmaaImageIndex;                     }
+    [[nodiscard]] auto postSmaaImageUnormViewIndex()            const -> SRTResourceIndex { return m_postSmaaImageUnormViewIndex;            }
+    [[nodiscard]] auto overdrawCountersImageIndex()             const -> SRTResourceIndex { return m_overdrawCountersImageIndex;             }
 
 
     auto handleWindowSizeChange(vk::Extent2D newWindowSize) -> void;
@@ -63,44 +63,44 @@ public:
 private:
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Render Targets
-    VulkanImage m_depthBuffer = nullptr;
-    VulkanImage m_albedoAndRoughnessBuffer = nullptr;
-    VulkanImage m_normalBuffer = nullptr;
-    VulkanImage m_metallicAndAoBuffer = nullptr;
-    VulkanImage m_velocityBuffer = nullptr;
-    VulkanImage m_colorBuffer = nullptr;
-    VulkanImageView m_colorBufferUnormView = nullptr;
+    vkrhi::VulkanImage m_depthBuffer = nullptr;
+    vkrhi::VulkanImage m_albedoAndRoughnessBuffer = nullptr;
+    vkrhi::VulkanImage m_normalBuffer = nullptr;
+    vkrhi::VulkanImage m_metallicAndAoBuffer = nullptr;
+    vkrhi::VulkanImage m_velocityBuffer = nullptr;
+    vkrhi::VulkanImage m_colorBuffer = nullptr;
+    vkrhi::VulkanImageView m_colorBufferUnormView = nullptr;
 
-    VulkanImage m_smaaColorResolvedBuffer0 = nullptr;
-    VulkanImage m_smaaColorResolvedBuffer1 = nullptr;
-    VulkanImageView m_smaaColorResolvedBuffer0UnormView = nullptr;
-    VulkanImageView m_smaaColorResolvedBuffer1UnormView = nullptr;
+    vkrhi::VulkanImage m_smaaColorResolvedBuffer0 = nullptr;
+    vkrhi::VulkanImage m_smaaColorResolvedBuffer1 = nullptr;
+    vkrhi::VulkanImageView m_smaaColorResolvedBuffer0UnormView = nullptr;
+    vkrhi::VulkanImageView m_smaaColorResolvedBuffer1UnormView = nullptr;
 
-    VulkanImage m_smaaEdgesImage = nullptr;
-    VulkanImage m_smaaWeightsImage = nullptr;
+    vkrhi::VulkanImage m_smaaEdgesImage = nullptr;
+    vkrhi::VulkanImage m_smaaWeightsImage = nullptr;
 
-    VulkanImage m_finalImage = nullptr;
-    VulkanImageView m_finalImageUnormView = nullptr;
+    vkrhi::VulkanImage m_finalImage = nullptr;
+    vkrhi::VulkanImageView m_finalImageUnormView = nullptr;
 
-    srt::SRTResourceIndex m_depthBufferIndex              = {};
-    srt::SRTResourceIndex m_albedoAndRoughnessBufferIndex = {};
-    srt::SRTResourceIndex m_normalBufferIndex             = {};
-    srt::SRTResourceIndex m_metallicAndAoBufferIndex      = {};
-    srt::SRTResourceIndex m_velocityBufferIndex           = {};
-    srt::SRTResourceIndex m_colorBufferIndex              = {};
-    srt::SRTResourceIndex m_colorBufferUnormViewIndex     = {};
-    srt::SRTResourceIndex m_smaaColorResolvedBuffer0UnormViewIndex = {};
-    srt::SRTResourceIndex m_smaaColorResolvedBuffer1UnormViewIndex = {};
-    srt::SRTResourceIndex m_smaaEdgesImageIndex           = {};
-    srt::SRTResourceIndex m_smaaWeightsImageIndex         = {};
-    srt::SRTResourceIndex m_postSmaaImageIndex          = {};
-    srt::SRTResourceIndex m_postSmaaImageUnormViewIndex = {};
-    srt::SRTResourceIndex m_overdrawCountersImageIndex = {};
+    SRTResourceIndex m_depthBufferIndex              = {};
+    SRTResourceIndex m_albedoAndRoughnessBufferIndex = {};
+    SRTResourceIndex m_normalBufferIndex             = {};
+    SRTResourceIndex m_metallicAndAoBufferIndex      = {};
+    SRTResourceIndex m_velocityBufferIndex           = {};
+    SRTResourceIndex m_colorBufferIndex              = {};
+    SRTResourceIndex m_colorBufferUnormViewIndex     = {};
+    SRTResourceIndex m_smaaColorResolvedBuffer0UnormViewIndex = {};
+    SRTResourceIndex m_smaaColorResolvedBuffer1UnormViewIndex = {};
+    SRTResourceIndex m_smaaEdgesImageIndex           = {};
+    SRTResourceIndex m_smaaWeightsImageIndex         = {};
+    SRTResourceIndex m_postSmaaImageIndex          = {};
+    SRTResourceIndex m_postSmaaImageUnormViewIndex = {};
+    SRTResourceIndex m_overdrawCountersImageIndex = {};
 
-    VulkanImage m_postSmaaImage = nullptr;
-    VulkanImageView m_postSmaaImageUnormView = nullptr;
+    vkrhi::VulkanImage m_postSmaaImage = nullptr;
+    vkrhi::VulkanImageView m_postSmaaImageUnormView = nullptr;
 
-    VulkanImage m_overdrawCountersImage = nullptr;
+    vkrhi::VulkanImage m_overdrawCountersImage = nullptr;
 
     auto setupRenderingAttachments(vk::Extent2D renderImageExtent) -> void;
     auto zeroinitColorBuffers() -> void;

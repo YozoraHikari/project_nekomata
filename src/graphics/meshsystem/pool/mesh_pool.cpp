@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.meshsystem.pool.mesh_pool;
 
-namespace projnekomata {
+namespace projnekomata::gfx {
 
 BufferPool::BufferPool(std::nullptr_t) {  }
 BufferPool::BufferPool(const BufferPoolConfig& cfg) : m_cfg(cfg) {}
@@ -16,17 +16,33 @@ BufferPool::~BufferPool() {
 }
 
 auto BufferPool::Slab::create(const BufferPoolConfig& cfg) -> Slab {
-    auto buffer = VulkanBuffer::create(cfg.slabSize, cfg.bufferUsageFlags, cfg.hostMemoryMapping, cfg.memoryUsage, cfg.memoryRequiredFlags, cfg.queueFamilyIndices);
+    auto buffer = vkrhi::VulkanBuffer::builder()
+        .len(cfg.slabSize)
+        .usage(cfg.bufferUsageFlags)
+        .memoryUsage(cfg.memoryUsage)
+        .memoryMapping(cfg.hostMemoryMapping)
+        .memoryRequiredFlags(cfg.memoryRequiredFlags)
+        .queueFamilyIndices(cfg.queueFamilyIndices)
+        .build();
+
     auto vbCreateInfo = vma::VirtualBlockCreateInfo{}
         .setSize(cfg.slabSize);
 
-    auto block = vkCheckResult(vma::raii::createVirtualBlock(vbCreateInfo));
+    auto block = vkrhi::vkCheckResult(vma::raii::createVirtualBlock(vbCreateInfo));
     return Slab(std::move(buffer), std::move(block));
 }
 
 auto BufferPool::DedicatedAllocation::create(u64 byteSize, const BufferPoolConfig& cfg) -> DedicatedAllocation {
-    auto buffer = VulkanBuffer::create(byteSize, cfg.bufferUsageFlags, cfg.hostMemoryMapping, cfg.memoryUsage, cfg.memoryRequiredFlags, cfg.queueFamilyIndices);
-    auto bufferptr = Unique<VulkanBuffer>::create(std::move(buffer));
+    auto buffer = vkrhi::VulkanBuffer::builder()
+        .len(byteSize)
+        .usage(cfg.bufferUsageFlags)
+        .memoryUsage(cfg.memoryUsage)
+        .memoryMapping(cfg.hostMemoryMapping)
+        .memoryRequiredFlags(cfg.memoryRequiredFlags)
+        .queueFamilyIndices(cfg.queueFamilyIndices)
+        .build();
+
+    auto bufferptr = Unique<vkrhi::VulkanBuffer>::create(std::move(buffer));
     return DedicatedAllocation(std::move(bufferptr));
 }
 
@@ -37,7 +53,7 @@ Option<BufferPoolSuballocation> BufferPool::trySuballocate(u32 slabIndex, u64 by
         .setSize(byteSize)
         .setAlignment(alignment);
 
-    vma::raii::VirtualAllocation va = vkCheckResult(slab.virtualBlock.allocate(vaCreateInfo));
+    vma::raii::VirtualAllocation va = vkrhi::vkCheckResult(slab.virtualBlock.allocate(vaCreateInfo));
 
     slab.usedBytes += byteSize;
 
@@ -48,7 +64,7 @@ Option<BufferPoolSuballocation> BufferPool::trySuballocate(u32 slabIndex, u64 by
     suballocation.offset = allocOffset;
     suballocation.size = byteSize;
 
-    if (m_cfg.hostMemoryMapping != VulkanBufferMemoryMapping::DontMap) {
+    if (m_cfg.hostMemoryMapping != vkrhi::VulkanBufferMemoryMapping::DontMap) {
         suballocation.hostAddress = slab.buffer.memoryHostPtr() + allocOffset;
     }
 
@@ -78,7 +94,7 @@ auto BufferPool::allocate(u64 byteSize, u64 alignment) -> BufferPoolSuballocatio
         suballocation.buffer = dedicatedAlloc.buffer->vkBuffer();
         suballocation.offset = 0;
         suballocation.size = byteSize;
-        if (m_cfg.hostMemoryMapping != VulkanBufferMemoryMapping::DontMap) {
+        if (m_cfg.hostMemoryMapping != vkrhi::VulkanBufferMemoryMapping::DontMap) {
             suballocation.hostAddress = dedicatedAlloc.buffer->memoryHostPtr();
         }
         if (m_cfg.bufferUsageFlags & vk::BufferUsageFlagBits::eShaderDeviceAddress) {
@@ -228,7 +244,7 @@ auto MeshPool::bufferPoolBaseCfg(const MeshPoolConfig& cfg) -> BufferPoolConfig 
         .queueFamilyIndices           = cfg.queueFamilyIndices,
         .memoryUsage                  = vma::MemoryUsage::eAutoPreferDevice,
         .memoryRequiredFlags          = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-        .hostMemoryMapping            = VulkanBufferMemoryMapping::MapForSequentialWrite
+        .hostMemoryMapping            = vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite
     };
 }
 

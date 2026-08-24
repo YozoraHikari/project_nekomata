@@ -1,5 +1,4 @@
 module;
-#include <ktx.h>
 #include <vulkan/vulkan.h>
 #include <ktxvulkan.h>
 #include <cstring>
@@ -14,23 +13,24 @@ import :graphics.vulkan.vk_commands_barriers;
 import :graphics.srt.bindless_descriptor_set_srt;
 import :graphics.vulkan.context;
 import :graphics.texturesystem.texture_manager;
+import :core.fs.path_resolve;
 
-namespace projnekomata::graphics::texturesystem {
+namespace projnekomata::gfx {
 
 TextureResources::TextureResources(std::nullptr_t) {}
-TextureResources::TextureResources(VulkanImage&& image)
+TextureResources::TextureResources(vkrhi::VulkanImage&& image)
     : m_image(std::move(image)) {}
 
 TextureManager::TextureManager(std::nullptr_t) {}
-TextureManager::TextureManager(Unique<srt::IShaderResourceTable>&& srt)
-    : m_textureToShaderIndexTable(2048), m_srt(std::move(srt)), m_loadedTextures(FreelistPoolV2<TextureResources, 4096>::create()) {}
+TextureManager::TextureManager(Unique<IShaderResourceTable>&& srt)
+    : m_loadedTextures(FreelistPoolV2<TextureResources, kMaxTextureCount>::create()), m_textureToShaderIndexTable(kMaxTextureCount), m_srt(std::move(srt)) {}
 
 auto TextureManager::create() -> Unique<TextureManager> {
     debug_assert(g_textureManager == nullptr, "only one TextureManager may live at any given time");
 
-    auto srt = srt::BindlessDescriptorSetShaderResourceTable::create(2048, 2048, 2048);
+    auto srt = BindlessDescriptorSetShaderResourceTable::create(kMaxSampledImageCount, 2048, kMaxSamplerCount);
 
-    auto textureManager = Unique<TextureManager>::create(Unique<srt::IShaderResourceTable>::upcast(std::move(srt)));
+    auto textureManager = Unique<TextureManager>::create(Unique<IShaderResourceTable>::upcast(std::move(srt)));
     g_textureManager = textureManager.ptr();
     auto pxData = Vec<u8>::create({0x39, 0x43, 0x52, 0xff});
     // loadTextureFromMemoryInternal depends on the sampler!!!
@@ -43,7 +43,18 @@ auto TextureManager::create() -> Unique<TextureManager> {
 auto TextureManager::createTexture(u32 width, u32 height, u32 depth, u32 layers, u32 mipLevels, bool isCube, vk::Format format, vk::ImageUsageFlags usage,
                                    const SamplerParams& samplerParams) -> Texture {
     // TODO: fix UB with assigning 2D null image when image is a type other than 2D
-    auto image = VulkanImage::create(vk::ImageType::e2D, vk::Extent3D { width, height, depth }, layers, mipLevels, isCube, format, usage, vk::ImageTiling::eOptimal, vma::MemoryUsage::eAutoPreferDevice, {}, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics | QueueFamily::AsyncCompute], vk::ImageLayout::eUndefined);
+    auto image = vkrhi::VulkanImage::builder()
+        .type(vk::ImageType::e2D)
+        .extentsrd(vk::Extent3D { width, height, depth }, layers, mipLevels)
+        .isCubemap(isCube)
+        .format(format)
+        .tiling(vk::ImageTiling::eOptimal)
+        .usage(usage)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .build();
+
     auto texture = allocateTexture(std::move(image));
     auto imageShaderIndex = m_srt->allocateSampledImageIndex();
     auto samplerShaderIndex = m_samplerCache.acquireSampler(samplerParams);
@@ -55,16 +66,34 @@ auto TextureManager::createTexture(u32 width, u32 height, u32 depth, u32 layers,
 
 auto TextureManager::loadTextureFromMemoryInternal(u32 width, u32 height, u32 depth, u32 arrayLayers, u32 mipLevels, vk::Format format,
                                            Slice<const u8> data, const SamplerParams& samplerParams) -> Texture {
-    auto image = VulkanImage::create(vk::ImageType::e2D, vk::Extent3D { width, height, depth }, arrayLayers, mipLevels, false, format, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::ImageTiling::eOptimal, vma::MemoryUsage::eAutoPreferDevice, {}, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics | QueueFamily::AsyncCompute], vk::ImageLayout::eUndefined);
+    auto image = vkrhi::VulkanImage::builder()
+        .type(vk::ImageType::e2D)
+        .extentsrd(vk::Extent3D { width, height, depth }, arrayLayers, mipLevels)
+        .isCubemap(false)
+        .format(format)
+        .tiling(vk::ImageTiling::eOptimal)
+        .usage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .build();
 
-    auto buffer = VulkanBuffer::create(data.size(), vk::BufferUsageFlagBits::eTransferSrc, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics | QueueFamily::AsyncCompute]);
+    auto buffer = vkrhi::VulkanBuffer::builder()
+        .len(data.size())
+        .usage(vk::BufferUsageFlagBits::eTransferSrc)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+        .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute)
+        .build();
+
     memcpy(buffer.memoryHostPtr(), data.data(), data.size());
-    auto cmd = cmdalloc::VulkanCommandPoolsList::getAssignedAsyncComputeCommandPool().allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    auto cmd = vkrhi::VulkanCommandPoolsList::getAssignedAsyncComputeCommandPool().allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
     auto& cb = cmd.vkCommandBuffer();
     auto cbBeginInfo = vk::CommandBufferBeginInfo{}
         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    cb.begin(cbBeginInfo);
-    VulkanPipelineBarriers::builder()
+    vkrhi::vkCheckResult(cb.begin(cbBeginInfo));
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(
             image,
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eNone,
@@ -85,15 +114,15 @@ auto TextureManager::loadTextureFromMemoryInternal(u32 width, u32 height, u32 de
         .setSrcBuffer(buffer.vkBuffer())
         .setRegions(copyRegion);
     cb.copyBufferToImage2(copyInfo);
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(
             image,
             vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone
         )
         .flush(cmd);
-    cb.end();
-    auto asyncOp = VulkanContext::get().vkQueueAsyncCompute().submitOneCommandBuffer(cb, {}, {}, None);
+    vkrhi::vkCheckResult(cb.end());
+    auto asyncOp = vkrhi::VulkanContext::get().vkQueueAsyncCompute().submitOneCommandBuffer(cb, {}, {}, None);
     asyncOp.await();
 
     auto texture = allocateTexture(std::move(image));
@@ -106,22 +135,61 @@ auto TextureManager::loadTextureFromMemoryInternal(u32 width, u32 height, u32 de
     return texture;
 }
 
-auto TextureManager::loadKtx2TextureAsync(const std::filesystem::path& path, const SamplerParams& samplerParams) -> Texture {
-    auto texture = allocateTexture(nullptr);
+auto TextureManager::loadKtx2TextureAsync(const fs::Path& path, const SamplerParams& samplerParams) -> Texture {
+    auto resolvedPath = fs::PathResolver::resolve(path);
 
-    // TODO: use a threadpool
-    auto thr = std::thread(temporary_uploadTheImage, texture, path, samplerParams);
+    ktxTexture2* ktxData;
+    ktx_error_code_e result = ktxTexture2_CreateFromNamedFile(resolvedPath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxData);
+
+    if (result != KTX_SUCCESS) {
+        panic("failed to load texture '{}': {}", path.string(), ktxErrorString(result));
+    }
+    
+    auto texture = allocateTexture(nullptr);
+    
+    auto thr = std::thread(uploadKtx2Image, path.string(), texture, ktxData, samplerParams);
     thr.detach();
+    
+    // thread runs ktxTexture2_Destroy
 
     return texture;
 }
-auto TextureManager::loadKtx2TextureBlocking(const std::filesystem::path& path, const SamplerParams& samplerParams) -> Texture {
+auto TextureManager::loadKtx2TextureBlocking(const fs::Path& path, const SamplerParams& samplerParams) -> Texture {
+    auto resolvedPath = fs::PathResolver::resolve(path);
+
+    ktxTexture2* ktxData;
+    ktx_error_code_e result = ktxTexture2_CreateFromNamedFile(resolvedPath.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxData);
+
+    if (result != KTX_SUCCESS) {
+        panic("failed to load texture '{}': {}", path.string(), ktxErrorString(result));
+    }
+
     auto texture = allocateTexture(nullptr);
-    temporary_uploadTheImage(texture, path, samplerParams);
+
+    uploadKtx2Image(path.string(), texture, ktxData, samplerParams);
+
+    // the function runs ktxTexture2_Destroy
+
     return texture;
 }
 
-auto TextureManager::allocateTexture(VulkanImage&& img) -> Texture {
+auto TextureManager::laodKtx2TextureFromMemoryBlocking(std::string name, Slice<const u8> data, const SamplerParams& samplerParams) -> Texture {
+    ktxTexture2* ktxData;
+    ktx_error_code_e result = ktxTexture2_CreateFromMemory(data.data(), data.len(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxData);
+    if (result != KTX_SUCCESS) {
+        panic("failed to load texture '{}' from memory: {}", name, ktxErrorString(result));
+    }
+
+    auto texture = allocateTexture(nullptr);
+
+    uploadKtx2Image(std::move(name), texture, ktxData, samplerParams);
+
+    // the function runs ktxTexture2_Destroy
+
+    return texture;
+}
+
+auto TextureManager::allocateTexture(vkrhi::VulkanImage&& img) -> Texture {
     auto textureIndex = m_loadedTextures.emplace(std::move(img));
     return Texture(textureIndex);
 }
@@ -131,7 +199,7 @@ auto TextureManager::freeTexture(Texture texture) -> void {
 }
 
 auto pickTranscodeDst(u32 numChannels, bool isHdr) -> ktx_transcode_fmt_e {
-    auto& physdevProps = VulkanContext::get().vkPhysicalDeviceProps();
+    auto& physdevProps = vkrhi::VulkanContext::get().vkPhysicalDeviceProps();
 
     if (isHdr) {
         if (physdevProps.m_textureFormatSupportASTCHDR) return KTX_TTF_ASTC_HDR_4x4_RGBA;
@@ -163,27 +231,17 @@ auto pickTranscodeDst(u32 numChannels, bool isHdr) -> ktx_transcode_fmt_e {
     }
 }
 
-auto TextureManager::temporary_uploadTheImage(Texture texture, const std::filesystem::path& path, const SamplerParams& samplerParams) -> void {
-    cmdalloc::VulkanCommandPoolsList::initThreadLocalCommandPools();
-
-    log::info("Loading texture: {}", path.string());
-    // Load the image from disk first.
-    // TODO: basist::ktx2_transcoder might give better results
-    ktxTexture2* ktxData;
-    KTX_error_code result = ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxData);
-
-    if (result != KTX_SUCCESS) {
-        panic("failed to load texture: {}", path.string());
-    }
+auto TextureManager::uploadKtx2Image(std::string name, Texture texture, ktxTexture2* ktxData, const SamplerParams& samplerParams) -> void {
+    vkrhi::VulkanCommandPoolsList::initThreadLocalCommandPools();
 
     bool needsTranscoding = ktxTexture2_IsTranscodable(ktxData);
     if (needsTranscoding) {
         auto numComponents = ktxTexture2_GetNumComponents(ktxData);
         auto isHdr = ktxTexture2_IsHDR(ktxData);
         ktx_transcode_fmt_e transcodeFormat = pickTranscodeDst(numComponents, isHdr);
-        KTX_error_code transcodeResult = ktxTexture2_TranscodeBasis(ktxData, transcodeFormat, 0);
+        ktx_error_code_e transcodeResult = ktxTexture2_TranscodeBasis(ktxData, transcodeFormat, 0);
         if (transcodeResult != KTX_SUCCESS) {
-            panic("failed to transcode texture");
+            panic("failed to transcode texture '{}': {}", name, ktxErrorString(transcodeResult));
         }
     }
 
@@ -203,16 +261,22 @@ auto TextureManager::temporary_uploadTheImage(Texture texture, const std::filesy
 
     // Image usage and format
     auto imageFormat = static_cast<vk::Format>(ktxTexture2_GetVkFormat(ktxData));
-    auto imageUsage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-    auto imageTiling = vk::ImageTiling::eOptimal;
-    auto imageQueues = VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[QueueFamily::Graphics | QueueFamily::AsyncCompute];
 
     // Vulkan Image
-    auto image = VulkanImage::create(vk::ImageType::e2D, vk::Extent3D { imageWidth, imageHeight, imageDepth }, imageArrayLayers, imageMipLevels, imageIsCubemap, imageFormat, imageUsage, imageTiling, vma::MemoryUsage::eAutoPreferDevice, {}, imageQueues, vk::ImageLayout::eUndefined);
-
+    auto image = vkrhi::VulkanImage::builder()
+        .type(vk::ImageType::e2D)
+        .extentsrd(vk::Extent3D { imageWidth, imageHeight, imageDepth }, imageArrayLayers, imageMipLevels)
+        .isCubemap(imageIsCubemap)
+        .format(imageFormat)
+        .tiling(vk::ImageTiling::eOptimal)
+        .usage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .build();
 
     log::info("Texture {} size: {}x{}x{}{} mips: {} layers: {} mem: {} format: {}{}",
-        path.string(),
+        name,
         imageWidth, imageHeight, imageDepth,
         imageIsCubemap ? " cubemap" : "",
         imageMipLevels, imageArrayLayers,
@@ -221,18 +285,26 @@ auto TextureManager::temporary_uploadTheImage(Texture texture, const std::filesy
     );
 
     // Staging buffer
-    auto buffer = VulkanBuffer::create(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, VulkanBufferMemoryMapping::MapForSequentialWrite, vma::MemoryUsage::eAutoPreferDevice, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, imageQueues);
+    auto buffer = vkrhi::VulkanBuffer::builder()
+        .len(bufferSize)
+        .usage(vk::BufferUsageFlagBits::eTransferSrc)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .memoryMapping(vkrhi::VulkanBufferMemoryMapping::MapForSequentialWrite)
+        .memoryRequiredFlags(vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics | vkrhi::QueueFamily::AsyncCompute)
+        .build();
+
     memcpy(buffer.memoryHostPtr(), imgData, bufferSize);
 
     // Command to upload
-    auto cmd = cmdalloc::VulkanCommandPoolsList::getAssignedAsyncComputeCommandPool().allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    auto cmd = vkrhi::VulkanCommandPoolsList::getAssignedAsyncComputeCommandPool().allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
     auto& cb = cmd.vkCommandBuffer();
 
     auto cbBeginInfo = vk::CommandBufferBeginInfo{}
         .setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
-    vkCheckResult(cb.begin(cbBeginInfo));
-    VulkanPipelineBarriers::builder()
+    vkrhi::vkCheckResult(cb.begin(cbBeginInfo));
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(
             image,
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone,
@@ -284,16 +356,16 @@ auto TextureManager::temporary_uploadTheImage(Texture texture, const std::filesy
 
     cb.copyBufferToImage2(copyInfo);
 
-    VulkanPipelineBarriers::builder()
+    vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(
             image,
             vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone
         )
         .flush(cmd);
-    vkCheckResult(cb.end());
+    vkrhi::vkCheckResult(cb.end());
 
-    auto future = VulkanContext::get().vkQueueAsyncCompute().submitOneCommandBuffer(cb, {}, {}, None);
+    auto future = vkrhi::VulkanContext::get().vkQueueAsyncCompute().submitOneCommandBuffer(cb, {}, {}, None);
     ktxTexture2_Destroy(ktxData);
 
     // TODO: Move somewhere else. We don't want it blocking an entire job when a threadpool gets in place.

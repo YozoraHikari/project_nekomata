@@ -78,6 +78,15 @@ public:
         return hashmap;
     }
 
+    static auto create(std::initializer_list<std::pair<K, V>> init) -> HashMap {
+        auto hashmap = HashMap();
+        hashmap.alloc(init.size());
+        for (auto& [key, value] : init) {
+            hashmap.insert(key, value);
+        }
+        return hashmap;
+    }
+
     static auto withCapacity(usize cap) -> HashMap {
         auto hashmap = HashMap();
         hashmap.alloc(cap);
@@ -485,7 +494,7 @@ public:
     }
 
 private:
-    HashMap<K, V>* m_hashmap = nullptr;
+    HashMap<K, V, H>* m_hashmap = nullptr;
     usize m_index = 0;
 
     constexpr auto skipEmpty() -> void {

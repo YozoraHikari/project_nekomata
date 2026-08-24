@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.vulkan.vk_queue_family_swizzling;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanQueueFamilySwizzling::VulkanQueueFamilySwizzling(std::nullptr_t) {  }
 VulkanQueueFamilySwizzling::VulkanQueueFamilySwizzling(u32 graphicsQueueFamilyIndex, u32 presentQueueFamilyIndex, u32 asyncComputeQueueFamilyIndex) {
@@ -53,4 +53,4 @@ VulkanQueueFamilySwizzling::VulkanQueueFamilySwizzling(u32 graphicsQueueFamilyIn
     }
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

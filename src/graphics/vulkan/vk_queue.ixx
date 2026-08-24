@@ -6,7 +6,7 @@ import :graphics.vulkan.vk_swapchain;
 import :graphics.vulkan.sync_primitives.fence;
 import :graphics.vulkan.sync_primitives.binary_semaphore;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class GPUFuture {
 public:
@@ -58,4 +58,4 @@ private:
     std::atomic<u64> m_lastTimelineSubmissionValue = 0;
 };
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

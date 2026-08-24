@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.cmd_alloc;
 
-namespace projnekomata::cmdalloc {
+namespace projnekomata::gfx::vkrhi {
 
 auto VulkanCommandPoolsList::initThreadLocalCommandPools() -> void {
     tl_graphicsCommandPool = VulkanCommandPool::createForGraphics(true);

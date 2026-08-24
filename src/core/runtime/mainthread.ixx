@@ -9,7 +9,6 @@ import :core.input.inputmanager;
 import :graphics.meshsystem.mesh_asset_storage;
 import :graphics.texturesystem.texture_manager;
 import :graphics.fontsystem.font_manager;
-import :core.ui.ui_node;
 import :core.ui.ui_system;
 import :graphics.materialsystem.mat_manager;
 
@@ -17,24 +16,27 @@ export namespace projnekomata {
 
 class MainThread {
 public:
-    MainThread(std::shared_ptr<MRThreadsSharedData> mrSharedData, Unique<VulkanContext>&& vkContext, SdlWindow&& sdlWindow);
+    MainThread(std::shared_ptr<MRThreadsSharedData> mrSharedData, Unique<gfx::vkrhi::VulkanContext>&& vkContext, SdlWindow&& sdlWindow);
 
     auto runMainLoop(const std::function<void(Unique<ecs::World>&)>&) -> void;
     auto getCurrentWorld() -> ecs::World*;
 
 private:
     auto loop(float dt) -> void;
+
+    auto updateEcsWorldTransforms() -> void;
+
     SdlWindow m_sdlWindow = nullptr;
 
     Unique<ecs::World> m_currentWorld = nullptr;
 
     std::shared_ptr<MRThreadsSharedData> m_mrSharedData = nullptr;
     Unique<core::input::Input> m_inputManager = nullptr;
-    Unique<VulkanContext> m_vkContext = nullptr;
-    Unique<meshsystem::MeshAssetStorage> m_meshAssetStorage = nullptr;
-    Unique<graphics::texturesystem::TextureManager> m_textureManager = nullptr;
-    Unique<MaterialManager> m_materialManager = nullptr;
-    Unique<graphics::fonts::FontManager> m_fontManager = nullptr;
+    Unique<gfx::vkrhi::VulkanContext> m_vkContext = nullptr;
+    Unique<gfx::MeshAssetStorage> m_meshAssetStorage = nullptr;
+    Unique<gfx::TextureManager> m_textureManager = nullptr;
+    Unique<gfx::MaterialManager> m_materialManager = nullptr;
+    Unique<FontManager> m_fontManager = nullptr;
 
 
     Unique<ui::UiSystem> m_uiSystem = nullptr;
@@ -42,7 +44,7 @@ private:
     u64 m_frameIndex = 0;
     bool m_waitForFrameStats = false;
 
-    graphics::fonts::FontFace m_overlayFont;
+    FontFace m_overlayFont;
 };
 
 }

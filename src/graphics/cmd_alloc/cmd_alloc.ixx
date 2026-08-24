@@ -1,7 +1,7 @@
 export module projnekomata:graphics.cmd_alloc;
 import :graphics.vulkan.vk_commands;
 
-export namespace projnekomata::cmdalloc {
+export namespace projnekomata::gfx::vkrhi {
 
 // This is currently an implementation with TLS. Maybe it'd make more sense later to make it use a freelist if this becomes a problem
 

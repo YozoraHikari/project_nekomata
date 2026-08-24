@@ -71,6 +71,12 @@ public:
 
         return vec;
     }
+    constexpr static auto uninitialized(usize len) -> Vec {
+        auto vec = Vec::create();
+        vec.setAlloc(len);
+        vec.m_len = len;
+        return vec;
+    }
 
     constexpr static auto fromStdVector(std::vector<T>&& vec) -> Vec {
         Vec dst = Vec::withCapacity(vec.size());
@@ -150,6 +156,15 @@ public:
         return m_data[index];
     }
 
+    constexpr Option<std::reference_wrapper<T>> at(usize index) noexcept {
+        if (index >= m_len) return None;
+        return Some(std::ref(m_data[index]));
+    }
+    constexpr Option<std::reference_wrapper<const T>> at(usize index) const noexcept {
+        if (index >= m_len) return None;
+        return Some(std::cref(m_data[index]));
+    }
+
     constexpr T& first() noexcept { return m_data[0]; }
     constexpr const T& first() const noexcept { return m_data[0]; }
     constexpr T& last() noexcept { return m_data[m_len - 1]; }
@@ -222,6 +237,14 @@ public:
         if (m_len == 0) return;
         m_len--;
         if constexpr (kNeedsFinalizer) m_data[m_len].~T();
+    }
+
+    constexpr auto pop2() -> Option<T> {
+        if (m_len == 0) return None;
+        m_len--;
+        auto elem = std::move(m_data[m_len]);
+        if constexpr (kNeedsFinalizer) m_data[m_len].~T();
+        return Some(std::move(elem));
     }
 
     constexpr auto clear() {

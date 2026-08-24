@@ -2,7 +2,7 @@ module projnekomata;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_descriptor_pool;
 
-namespace projnekomata {
+namespace projnekomata::gfx::vkrhi {
 
 VulkanDescriptorPool::VulkanDescriptorPool(std::nullptr_t) {  }
 VulkanDescriptorPool::VulkanDescriptorPool(vk::raii::DescriptorPool&& vkDescriptorPool) : m_vkDescriptorPool(std::move(vkDescriptorPool)) {}
@@ -39,4 +39,4 @@ auto VulkanDescriptorPool::allocateDescriptorSet(const VulkanDescriptorSetLayout
     return VulkanDescriptorSet(std::move(descriptorSet));
 }
 
-} // namespace projnekomata
+} // namespace projnekomata::gfx::vkrhi

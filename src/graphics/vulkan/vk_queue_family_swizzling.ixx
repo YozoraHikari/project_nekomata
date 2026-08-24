@@ -2,7 +2,7 @@ export module projnekomata:graphics.vulkan.vk_queue_family_swizzling;
 import std;
 import projnekomata.cs;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 enum class QueueFamily : u8 {
     Graphics     = 1 << 0,

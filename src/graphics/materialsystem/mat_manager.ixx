@@ -5,7 +5,7 @@ import :graphics.vulkan.vk_pipeline_layout;
 import :core.containers.freelist_pool;
 import :graphics.vulkan.vk_pipeline_graphics;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx {
 
 enum class MaterialPassType {
     Deferred,
@@ -16,17 +16,17 @@ class MaterialShaderBuilder;
 class MaterialShader {
 public:
     MaterialShader(std::nullptr_t) {}
-    MaterialShader(MaterialPassType passType, VulkanGraphicsPipeline&& pipeline, usize materialPropStructSize)
+    MaterialShader(MaterialPassType passType, vkrhi::VulkanGraphicsPipeline&& pipeline, usize materialPropStructSize)
         : m_passType(passType), m_pipeline(std::move(pipeline)), m_materialPropStructSize(materialPropStructSize) {}
 
     [[nodiscard]] constexpr auto passType() const noexcept -> MaterialPassType { return m_passType; }
-    [[nodiscard]] constexpr auto pipeline() const noexcept -> const VulkanGraphicsPipeline& { return m_pipeline; }
+    [[nodiscard]] constexpr auto pipeline() const noexcept -> const vkrhi::VulkanGraphicsPipeline& { return m_pipeline; }
     [[nodiscard]] constexpr auto materialPropStructSize() const noexcept -> usize { return m_materialPropStructSize; }
     [[nodiscard]] constexpr static auto builder() noexcept -> MaterialShaderBuilder;
 
 private:
     MaterialPassType m_passType       = MaterialPassType::Deferred;
-    VulkanGraphicsPipeline m_pipeline = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_pipeline = nullptr;
     usize m_materialPropStructSize = 0;
 };
 
@@ -57,12 +57,12 @@ struct MaterialPropertiesHandle {
 class MaterialManager {
 public:
     MaterialManager(std::nullptr_t);
-    MaterialManager(VulkanPipelineLayout&& pipelineLayout);
+    MaterialManager(vkrhi::VulkanPipelineLayout&& pipelineLayout);
 
     static auto get() -> MaterialManager& { return *g_instance; }
     static auto create() -> Unique<MaterialManager>;
 
-    [[nodiscard]] constexpr auto globalPipelineLayout() const noexcept -> const VulkanPipelineLayout& { return m_globalPipelineLayout; }
+    [[nodiscard]] constexpr auto globalPipelineLayout() const noexcept -> const vkrhi::VulkanPipelineLayout& { return m_globalPipelineLayout; }
 
     [[nodiscard]] constexpr auto materialShaderHeap() noexcept -> FreelistPoolV2<MaterialShader, 1024>& { return m_materialShaders; }
     [[nodiscard]] constexpr auto materialShaderHeap() const noexcept -> const FreelistPoolV2<MaterialShader, 1024>& { return m_materialShaders; }
@@ -77,7 +77,7 @@ public:
 
 private:
     static inline MaterialManager* g_instance = nullptr;
-    VulkanPipelineLayout m_globalPipelineLayout = nullptr;
+    vkrhi::VulkanPipelineLayout m_globalPipelineLayout = nullptr;
 
     FreelistPoolV2<MaterialShader, 1024> m_materialShaders = FreelistPoolV2<MaterialShader, 1024>::create();
     HashMap<usize, Unique<NotypeFreelistPoolV2<4096>>> m_materialParamPoolsByStructSize = HashMap<usize, Unique<NotypeFreelistPoolV2<4096>>>::create();
@@ -93,12 +93,12 @@ template <typename T> auto TypedMaterialPropertiesHandle<T>::operator->() const 
 
 class MaterialShaderBuilder {
 public:
-    [[nodiscard]] constexpr auto setPrerastVS(const SpirvShaderCode& shader) noexcept -> MaterialShaderBuilder& {
+    [[nodiscard]] constexpr auto setPrerastVS(const vkrhi::SpirvShaderCode& shader) noexcept -> MaterialShaderBuilder& {
         auto& _ = m_vkGraphicsPipelineBuilder.addShader(shader, vk::ShaderStageFlagBits::eVertex);
         return *this;
     }
 
-    [[nodiscard]] constexpr auto setFragmentShader(const SpirvShaderCode& shader) noexcept -> MaterialShaderBuilder& {
+    [[nodiscard]] constexpr auto setFragmentShader(const vkrhi::SpirvShaderCode& shader) noexcept -> MaterialShaderBuilder& {
         auto& _ = m_vkGraphicsPipelineBuilder.addShader(shader, vk::ShaderStageFlagBits::eFragment);
         return *this;
     }
@@ -113,7 +113,7 @@ public:
                 vk::PipelineColorBlendAttachmentState{}
                      .setBlendEnable(false)
                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
-                vk::Format::eR8G8B8A8Unorm
+                vk::Format::eR8G8B8A8Srgb
             )
             // Normals
             .pushRenderingAttachment(
@@ -157,7 +157,7 @@ public:
     }
 
 private:
-    VulkanGraphicsPipelineBuilder m_vkGraphicsPipelineBuilder = VulkanGraphicsPipeline::builder();
+    vkrhi::VulkanGraphicsPipelineBuilder m_vkGraphicsPipelineBuilder = vkrhi::VulkanGraphicsPipeline::builder();
     usize m_materialPropStructSize = 0;
 
     constexpr MaterialShaderBuilder() {

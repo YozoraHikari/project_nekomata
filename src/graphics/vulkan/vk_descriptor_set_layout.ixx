@@ -5,7 +5,7 @@ import vulkan;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_gpu_obrm;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanDescriptorSetLayoutBuilder;
 class VulkanDescriptorSetLayout {

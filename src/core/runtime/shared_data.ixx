@@ -20,15 +20,15 @@ struct MRThreadsSharedDataLeaf {
 
     // ---- ECS Components -------------------------------------------------------------------------------------------------------------------------------------
 
-    ecs::ComponentSetSnapshot<ecs::components::Renderable> m_renderables;
-    ecs::ComponentSetSnapshot<ecs::components::PointLight> m_pointlights;
-    ecs::ComponentSetSnapshot<ecs::components::Transform> m_transforms;
-    ecs::ComponentSetSnapshot<ecs::components::Camera> m_cameras;
+    ecs::ComponentSetSnapshot<RenderableComponent> m_renderables;
+    ecs::ComponentSetSnapshot<PointlightComponent> m_pointlights;
+    ecs::ComponentSetSnapshot<WorldTransformComponent> m_transforms;
+    ecs::ComponentSetSnapshot<CameraComponent> m_cameras;
 
     // ---- Bindless Textures ----------------------------------------------------------------------------------------------------------------------------------
 
-    Vec<u32> m_textureToImageShaderIndexSnapshot   = Vec<u32>::filledWith(4096, 0);
-    Vec<u32> m_textureToSamplerShaderIndexSnapshot = Vec<u32>::filledWith(4096, 0);
+    Vec<u32> m_textureToImageShaderIndexSnapshot   = Vec<u32>::filledWith(gfx::kMaxTextureCount, 0);
+    Vec<u32> m_textureToSamplerShaderIndexSnapshot = Vec<u32>::filledWith(gfx::kMaxTextureCount, 0);
 
     // ---- Materials ------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ public:
 
     std::atomic<bool> m_shouldQuit;
     std::string_view m_sdlVideoDriverName;
-    graphics::rendering::DynamicBitmapFontAtlas m_fontAtlas;
+    gfx::DynamicBitmapFontAtlas m_fontAtlas;
 
     QueryTimestamps m_queryTimestamps;
     u64 m_deferredGeometryPipelineStats[4];

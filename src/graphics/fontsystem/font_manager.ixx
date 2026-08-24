@@ -8,7 +8,7 @@ import :core.math;
 import :graphics.fontsystem.font_face;
 import :graphics.fontsystem.dynamic_font_atlas;
 
-export namespace projnekomata::graphics::fonts {
+export namespace projnekomata {
 class FontManager;
 
 inline FontManager* g_fontManager = nullptr;
@@ -33,7 +33,7 @@ struct FontRasterBatch {
 
 struct FontRasterInfo {
     Slice<const FontRasterBatch> batches;
-    rendering::DynamicBitmapFontAtlas& atlas;
+    gfx::DynamicBitmapFontAtlas& atlas;
     // the u32 is the index in the font atlas image array
     HashMap<u32, Vec<vk::BufferImageCopy2>>& copyRegions;
     Vec<u8>& resultBuffer;
@@ -48,6 +48,10 @@ struct GlyphInstance {
     u32 imageShaderIndex;
 };
 
+struct GlyphFeedback {
+    math::Vector2f position;
+};
+
 class FontManager {
 public:
     static auto get() -> FontManager& {
@@ -60,12 +64,13 @@ public:
 
     static auto create() -> Unique<FontManager>;
 
-    auto loadFont(const std::filesystem::path& path) -> FontFace;
+    auto loadFont(const fs::Path& path) -> FontFace;
     auto freeFont(FontFace font) -> void;
 
     auto rasterizeGlyphs(FontRasterInfo rasterInfo) -> void;
-    auto shapeText(FontFace font, rendering::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize) -> Vec<GlyphInstance>;
-    auto findAndBatchMissingGlyphs(FontFace font, rendering::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize) -> Option<FontRasterBatch>;
+    auto measureText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize) -> math::Vector2f;
+    auto shapeText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize, bool feedback) -> std::pair<Vec<GlyphInstance>, Vec<GlyphFeedback>>;
+    auto findAndBatchMissingGlyphs(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, std::string_view text, u32 pixelSize) -> Option<FontRasterBatch>;
 
 private:
     FT_Library m_ftLibrary;

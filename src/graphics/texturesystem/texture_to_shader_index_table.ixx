@@ -2,7 +2,7 @@ export module projnekomata:graphics.texturesystem.texture_to_shader_index_table;
 import std;
 import projnekomata.cs;
 
-export namespace projnekomata::graphics::texturesystem {
+export namespace projnekomata::gfx {
 
 /// The reason why we need to translate texture indices to shader indices is as follows:
 ///  - Amendments of images/image views (necessary for mip streaming).

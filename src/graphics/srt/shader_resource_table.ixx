@@ -8,7 +8,7 @@ import :graphics.vulkan.vk_pipeline_layout;
 import :graphics.vulkan.vk_commands;
 import :graphics.vulkan.vk_descriptor_set_layout;
 
-export namespace projnekomata::graphics::srt {
+export namespace projnekomata::gfx {
 
 struct SRTResourceIndex {
     u32 imageIndex;
@@ -33,16 +33,16 @@ public:
     virtual auto allocateSamplerIndex() -> SRTResourceIndex = 0;
     virtual auto allocateSamplerIndices(u32 count, Slice<SRTResourceIndex> dstIndices) -> void = 0;
 
-    virtual auto bindSampledImage(const VulkanImage& image, SRTResourceIndex index) -> void = 0;
-    virtual auto bindSampledImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void = 0;
-    virtual auto bindStorageImage(const VulkanImage& image, SRTResourceIndex index) -> void = 0;
-    virtual auto bindStorageImageView(const VulkanImageView& imageView, SRTResourceIndex index) -> void = 0;
-    virtual auto bindSampler(const VulkanSampler& sampler, SRTResourceIndex index) -> void = 0;
+    virtual auto bindSampledImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void = 0;
+    virtual auto bindSampledImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void = 0;
+    virtual auto bindStorageImage(const vkrhi::VulkanImage& image, SRTResourceIndex index) -> void = 0;
+    virtual auto bindStorageImageView(const vkrhi::VulkanImageView& imageView, SRTResourceIndex index) -> void = 0;
+    virtual auto bindSampler(const vkrhi::VulkanSampler& sampler, SRTResourceIndex index) -> void = 0;
 
-    virtual auto bindToCommandBuffer(const VulkanCommandBuffer& cmd, const VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void = 0;
+    virtual auto bindToCommandBuffer(const vkrhi::VulkanCommandBuffer& cmd, const vkrhi::VulkanPipelineLayout& pipelineLayout, vk::PipelineBindPoint pipelineBindPoint) -> void = 0;
 
     // temporary
-    virtual auto descriptorSetLayout() const -> const VulkanDescriptorSetLayout& = 0;
+    virtual auto descriptorSetLayout() const -> const vkrhi::VulkanDescriptorSetLayout& = 0;
 };
 
 }

@@ -38,7 +38,7 @@ public:
     ComponentSet() = default;
 
     void resizeSparseToFit(u32 index) {
-        if (index >= m_storage.len())
+        if (index >= m_sparseToStorage.len())
             m_sparseToStorage.resize(index + 1, INVALID_INDEX);
     }
 
@@ -82,12 +82,12 @@ public:
     }
 
     T& get(Entity ent) {
-        debug_assert(containsEntity(ent), "attempted to get component from entity that does not have that component");
+        if (!containsEntity(ent)) panic("attempted to get component from entity that does not have that component");
         return m_storage[m_sparseToStorage[ent.index()]];
     }
 
     [[nodiscard]] const T& get(Entity ent) const {
-        debug_assert(containsEntity(ent), "attempted to get component from entity that does not have that component");
+        if (!containsEntity(ent)) panic("attempted to get component from entity that does not have that component");
         return m_storage[m_sparseToStorage[ent.index()]];
     }
 
@@ -96,18 +96,21 @@ public:
         return &m_storage[m_sparseToStorage[ent.index()]];
     }
 
+    auto storage() -> Vec<T>& { return m_storage; }
+    auto sparseToStorage() -> Vec<u32>& { return m_sparseToStorage; }
+    auto storageToEntity() -> Vec<Entity>& { return m_storageToEntity; }
+
     [[nodiscard]] usize size() const override {
         return m_storage.len();
     }
 
-    void copyTo(ComponentSetSnapshot<T>& buf) const {
+    void copyTo(ComponentSetSnapshot<T>& buf) const requires (std::is_copy_constructible_v<T>) {
         buf.m_storage.copyFrom(m_storage.asSlice());
         buf.m_sparseToStorage.copyFrom(m_sparseToStorage.asSlice());
         buf.m_storageToEntity.copyFrom(m_storageToEntity.asSlice());
     }
 
 private:
-
     Vec<T>      m_storage         = Vec<T>::create();
     Vec<u32>    m_sparseToStorage = Vec<u32>::create();
     Vec<Entity> m_storageToEntity = Vec<Entity>::create();

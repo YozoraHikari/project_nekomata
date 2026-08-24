@@ -1,7 +1,7 @@
 module projnekomata;
 import :graphics.texturesystem.texture_manager;
 
-namespace projnekomata::graphics::texturesystem {
+namespace projnekomata::gfx {
 
 SamplerCache::SamplerCache() {}
 
@@ -19,7 +19,7 @@ auto SamplerCache::acquireSampler(const SamplerParams& params) -> u32 {
 }
 
 auto SamplerCache::createSampler(const SamplerParams& params) -> SamplerCacheEntry {
-    auto sampler = VulkanSampler::create(params.m_minFilter, params.m_magFilter, params.m_mipmapMode, params.m_addressModeU, params.m_addressModeV, params.m_addressModeW, params.m_anisotropy > 1.0f, params.m_anisotropy, params.m_minLod, params.m_maxLod, params.m_mipLodBias);
+    auto sampler = vkrhi::VulkanSampler::create(params.m_minFilter, params.m_magFilter, params.m_mipmapMode, params.m_addressModeU, params.m_addressModeV, params.m_addressModeW, params.m_anisotropy > 1.0f, params.m_anisotropy, params.m_minLod, params.m_maxLod, params.m_mipLodBias);
 
     auto idx = TextureManager::get().shaderResourceTable().allocateSamplerIndex();
     TextureManager::get().shaderResourceTable().bindSampler(sampler, idx);
@@ -29,4 +29,4 @@ auto SamplerCache::createSampler(const SamplerParams& params) -> SamplerCacheEnt
     return entry;
 }
 
-} // namespace projnekomata::graphics::texturesystem
+} // namespace projnekomata

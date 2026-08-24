@@ -3,6 +3,7 @@ import :core.math.base_matrix;
 
 export namespace projnekomata::math {
 
+template <typename T, usize NDims> using Vector = Matrix<T, 1, NDims>;
 using Vector2h   = Matrix<f16, 1, 2>;
 using Vector3h   = Matrix<f16, 1, 3>;
 using Vector4h   = Matrix<f16, 1, 4>;

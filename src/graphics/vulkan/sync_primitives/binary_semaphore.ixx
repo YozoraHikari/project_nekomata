@@ -2,7 +2,7 @@ export module projnekomata:graphics.vulkan.sync_primitives.binary_semaphore;
 import vulkan;
 import :graphics.vulkan.vk_gpu_obrm;
 
-export namespace projnekomata {
+export namespace projnekomata::gfx::vkrhi {
 
 class VulkanBinarySemaphore {
 public:
