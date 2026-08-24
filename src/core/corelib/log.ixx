@@ -1,6 +1,6 @@
 module;
 #include <ctime>
-export module projnekomata.cs:log;
+export module projnekomata.corelib:log;
 import std;
 import fmt;
 

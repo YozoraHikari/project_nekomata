@@ -1,4 +1,4 @@
-export module projnekomata.cs:assertions;
+export module projnekomata.corelib:assertions;
 import :panic;
 
 export constexpr void debug_assert(const bool& condition, std::string_view message, std::source_location loc = std::source_location::current()) {

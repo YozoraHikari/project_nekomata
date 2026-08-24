@@ -1,6 +1,6 @@
 export module projnekomata:graphics.rendering.frame_rendering_resources;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_commands;
 import :graphics.vulkan.vk_buffer;
 import :graphics.vulkan.sync_primitives.fence;

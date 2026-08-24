@@ -1,8 +1,9 @@
-# Core Standard (CS)
+# Project Nekomata CoreLib
 
 This is a set of random containers and some convenience features I made when I was bored.
 They bring a more Rust-style approach to C++ to solve some sanity problems with its standard library, such as bad
 ergonomics/syntax, low performance, and LSP breakage (fuck you `std::ranges`).
+They are also thin by-design to make them cheap in terms of compile time.
 
 In this project it's preferable to use these containers/algorithms over the standard library ones (e.g. `Vec` instead of
 `std::vector`, `HashMap` instead of `std::unordered_map`) for the reasons stated above.
@@ -35,7 +36,7 @@ int sum = std::ranges::fold_left(
 );
 ```
 
-With CS:
+With CoreLib:
 ```cpp
 auto v = Vec<i32>::create({1, 2, 3, 4, 5});
 auto sum = v.iter()

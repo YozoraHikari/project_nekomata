@@ -1,7 +1,7 @@
 export module projnekomata:graphics.vulkan.vk_queue;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_swapchain;
 import :graphics.vulkan.sync_primitives.fence;
 import :graphics.vulkan.sync_primitives.binary_semaphore;

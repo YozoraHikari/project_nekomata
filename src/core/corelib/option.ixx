@@ -1,4 +1,4 @@
-export module projnekomata.cs:option;
+export module projnekomata.corelib:option;
 import std;
 import fmt;
 import :invoke_traits;

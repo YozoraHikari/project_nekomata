@@ -1,6 +1,6 @@
 export module projnekomata:core.ecs;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 export import :core.ecs.component_pool;
 export import :core.ecs.entity;
 export import :core.ecs.script_base;

@@ -1,5 +1,5 @@
 export module projnekomata:graphics.srt.srt_consts;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata::gfx {
 

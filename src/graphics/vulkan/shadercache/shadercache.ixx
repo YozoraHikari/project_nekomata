@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.shadercache;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :core.overloaded;
 import :graphics.vulkan.shadercache.pipeline_binary_frontend;

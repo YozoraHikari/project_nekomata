@@ -1,5 +1,5 @@
 export module projnekomata:core.ui.nodes.text;
-import projnekomata.cs;
+import projnekomata.corelib;
 import std;
 import :core.ui.nodes.node;
 

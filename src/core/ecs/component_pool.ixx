@@ -1,6 +1,6 @@
 export module projnekomata:core.ecs.component_pool;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.ecs.entity;
 import :core.ecs.world.camera;
 

@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.vk_image;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
 import :graphics.vulkan.vk_image_view;

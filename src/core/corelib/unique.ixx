@@ -1,4 +1,4 @@
-export module projnekomata.cs:unique;
+export module projnekomata.corelib:unique;
 import std;
 import :cmp_traits;
 

@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.vk_queue_family_swizzling;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata::gfx::vkrhi {
 

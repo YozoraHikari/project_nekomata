@@ -1,5 +1,5 @@
 export module projnekomata:core.ui.nodes.node;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.math;
 import :core.overloaded;
 import :core.ui.ui_drawcmds;

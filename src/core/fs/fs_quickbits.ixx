@@ -1,6 +1,6 @@
 export module projnekomata:core.fs.fs_quickbits;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.fs.path_resolve;
 
 export namespace projnekomata::fs {

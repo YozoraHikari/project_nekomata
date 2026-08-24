@@ -1,6 +1,6 @@
 module projnekomata;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vk_mem_alloc;
 import :graphics.vulkan.context;
 import :graphics.rendering.transient_rendering_resources;

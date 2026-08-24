@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.sync_primitives.fence;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_gpu_obrm;
 
 export namespace projnekomata::gfx::vkrhi {

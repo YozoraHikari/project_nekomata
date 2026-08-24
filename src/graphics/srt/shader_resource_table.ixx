@@ -1,7 +1,7 @@
 export module projnekomata:graphics.srt.shader_resource_table;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_image;
 import :graphics.vulkan.vk_sampler;
 import :graphics.vulkan.vk_pipeline_layout;

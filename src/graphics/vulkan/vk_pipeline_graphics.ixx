@@ -1,7 +1,7 @@
 export module projnekomata:graphics.vulkan.vk_pipeline_graphics;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_gpu_obrm;
 import :graphics.vulkan.spv_shader_code;
 import :graphics.vulkan.vk_pipeline_layout;

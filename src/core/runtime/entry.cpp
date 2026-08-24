@@ -2,7 +2,7 @@ module;
 #include <SDL3/SDL_messagebox.h>
 module projnekomata;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.platform.sdl;
 import :graphics.vulkan.context;
 import :core.runtime.shared_data;

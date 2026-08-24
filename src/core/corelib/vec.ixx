@@ -1,7 +1,7 @@
 module;
 #include <cstdlib>
 #include <malloc.h>
-export module projnekomata.cs:vec;
+export module projnekomata.corelib:vec;
 import std;
 import :iterators;
 import :mem;

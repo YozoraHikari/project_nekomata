@@ -1,5 +1,5 @@
 export module projnekomata:core.math.aabb;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.math.matrix_types;
 
 export namespace projnekomata::math {

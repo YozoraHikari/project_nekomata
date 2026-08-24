@@ -1,6 +1,6 @@
 module;
 #include <cstddef>
-export module projnekomata.cs:iterators;
+export module projnekomata.corelib:iterators;
 import std;
 import :invoke_traits;
 import :niche;

@@ -1,5 +1,5 @@
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.srt.bindless_descriptor_set_srt;
 
 namespace projnekomata::gfx {

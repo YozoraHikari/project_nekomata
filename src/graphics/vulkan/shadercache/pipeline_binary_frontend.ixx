@@ -3,7 +3,7 @@ module;
 export module projnekomata:graphics.vulkan.shadercache.pipeline_binary_frontend;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.storage.sharded_hash_storage;
 import :graphics.vulkan.context;
 import :graphics.vulkan.shadercache.pipeline_sc_concept;

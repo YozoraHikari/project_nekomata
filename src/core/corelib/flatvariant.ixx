@@ -1,4 +1,4 @@
-export module projnekomata.cs:flatvariant;
+export module projnekomata.corelib:flatvariant;
 import std;
 import :primitives;
 import :log;

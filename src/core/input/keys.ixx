@@ -2,7 +2,7 @@ module;
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
 export module projnekomata:core.input.keys;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata::core::input {
 

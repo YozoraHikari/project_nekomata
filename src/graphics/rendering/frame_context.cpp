@@ -1,7 +1,7 @@
 module;
 #include <string.h>
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
 import :graphics.rendering.frame_rendering_resources;

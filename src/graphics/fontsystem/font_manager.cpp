@@ -2,7 +2,7 @@ module;
 #include <freetype/freetype.h>
 #include <utf8cpp/utf8.h>
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.fontsystem.dynamic_font_atlas;
 import :graphics.fontsystem.font_manager;
 

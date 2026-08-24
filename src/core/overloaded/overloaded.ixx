@@ -1,6 +1,6 @@
 export module projnekomata:core.overloaded;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata {
 

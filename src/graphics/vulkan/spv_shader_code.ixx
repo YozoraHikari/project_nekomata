@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.spv_shader_code;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :core.fs.path_resolve;
 

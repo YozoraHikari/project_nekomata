@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.vk_swapchain;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :graphics.vulkan.vk_gpu_obrm;
 import :graphics.vulkan.sync_primitives.binary_semaphore;

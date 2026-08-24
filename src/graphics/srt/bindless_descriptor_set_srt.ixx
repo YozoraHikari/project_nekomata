@@ -1,7 +1,7 @@
 export module projnekomata:graphics.srt.bindless_descriptor_set_srt;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.srt.shader_resource_table;
 import :graphics.vulkan.vk_descriptor_pool;
 import :graphics.vulkan.vk_descriptor_set_layout;

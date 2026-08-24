@@ -1,6 +1,6 @@
 export module projnekomata:core.math.base_matrix;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.math.consts;
 
 export namespace projnekomata::math {

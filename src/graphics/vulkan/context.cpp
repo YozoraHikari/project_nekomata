@@ -1,7 +1,7 @@
 module;
 #include <vulkan/vulkan.h>
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.deletion_queue;
 import :graphics.vulkan.vk_queue;
 import :graphics.vulkan.shadercache;

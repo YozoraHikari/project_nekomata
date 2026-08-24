@@ -1,6 +1,6 @@
 export module projnekomata:core.containers.freelist_pool;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 // TODO: respect T/runtime object alignof
 

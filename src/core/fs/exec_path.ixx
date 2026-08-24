@@ -8,7 +8,7 @@ module;
 #include <mach-o/dyld.h>
 #endif
 export module projnekomata:core.fs.exec_path;
-import projnekomata.cs;
+import projnekomata.corelib;
 import std;
 
 namespace projnekomata::fs {

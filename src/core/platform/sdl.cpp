@@ -3,7 +3,7 @@ module;
 #include <SDL3/SDL_vulkan.h>
 module projnekomata;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :core.math;
 import :core.platform.sdl;

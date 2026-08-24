@@ -1,6 +1,6 @@
 module projnekomata;
 import fmt;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.cmd_alloc;
 import :graphics.vulkan.context;
 import :graphics.meshsystem.mesh_asset_storage;

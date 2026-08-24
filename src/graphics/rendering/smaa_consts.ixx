@@ -1,7 +1,7 @@
 module;
 #include <stddef.h>
 export module projnekomata:graphics.rendering.smaa_consts;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_spec_constants;
 
 export namespace projnekomata::gfx {

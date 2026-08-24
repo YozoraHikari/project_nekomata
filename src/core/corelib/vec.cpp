@@ -1,4 +1,4 @@
-module projnekomata.cs;
+module projnekomata.corelib;
 import :vec;
 
 template class Vec<u8>;

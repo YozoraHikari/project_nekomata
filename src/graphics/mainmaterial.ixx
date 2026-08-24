@@ -1,5 +1,5 @@
 export module projnekomata:graphics.corematerial;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.math;
 import :graphics.texturesystem.texture_manager;
 

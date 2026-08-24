@@ -1,5 +1,5 @@
 export module projnekomata:core.ui.nodes.textinput;
-import projnekomata.cs;
+import projnekomata.corelib;
 import std;
 import :core.ui.nodes.node;
 import :core.ui.ui_system;

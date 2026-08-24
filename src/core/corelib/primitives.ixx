@@ -1,4 +1,4 @@
-export module projnekomata.cs:primitives;
+export module projnekomata.corelib:primitives;
 import std;
 
 export using i8  = std::int8_t;

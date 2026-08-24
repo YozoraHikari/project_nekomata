@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.vk_commands;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :graphics.vulkan.vk_gpu_obrm;
 

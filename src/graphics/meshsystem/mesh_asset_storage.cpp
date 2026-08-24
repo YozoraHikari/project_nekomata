@@ -1,5 +1,5 @@
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.meshsystem.mesh_asset_storage;

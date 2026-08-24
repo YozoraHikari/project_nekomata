@@ -1,4 +1,4 @@
-export module projnekomata.cs:nonnull_ptr;
+export module projnekomata.corelib:nonnull_ptr;
 import :niche;
 import :option;
 

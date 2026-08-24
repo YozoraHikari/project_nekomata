@@ -1,6 +1,6 @@
 export module projnekomata:core.command.shell;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.command.cvar;
 
 

@@ -1,4 +1,4 @@
-module projnekomata.cs;
+module projnekomata.corelib;
 import :slice;
 
 template class Slice<u8>;

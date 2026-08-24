@@ -1,4 +1,4 @@
-export module projnekomata.cs;
+export module projnekomata.corelib;
 export import :assertions;
 export import :cmp_traits;
 export import :flatvariant;

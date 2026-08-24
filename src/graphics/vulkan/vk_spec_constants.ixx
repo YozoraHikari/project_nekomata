@@ -1,7 +1,7 @@
 export module projnekomata:graphics.vulkan.vk_spec_constants;
 import std;
 import vulkan;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata::gfx::vkrhi {
 

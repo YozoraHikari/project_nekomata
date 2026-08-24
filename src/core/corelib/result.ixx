@@ -1,4 +1,4 @@
-export module projnekomata.cs:result;
+export module projnekomata.corelib:result;
 import std;
 import fmt;
 import :flatvariant;

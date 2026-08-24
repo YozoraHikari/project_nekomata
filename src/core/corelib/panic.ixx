@@ -10,7 +10,7 @@ module;
 #endif
 
 #endif
-export module projnekomata.cs:panic;
+export module projnekomata.corelib:panic;
 import std;
 import fmt;
 import :log;

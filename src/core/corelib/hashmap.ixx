@@ -4,7 +4,7 @@ module;
 #include <emmintrin.h>
 #include <mmintrin.h>
 #include <string.h>
-export module projnekomata.cs:hashmap;
+export module projnekomata.corelib:hashmap;
 import :assertions;
 import :mem;
 import :iterators;

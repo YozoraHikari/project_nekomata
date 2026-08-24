@@ -9,7 +9,7 @@ module;
 #include <sys/syscall.h>
 #include <unistd.h>
 #endif
-export module projnekomata.cs:thread;
+export module projnekomata.corelib:thread;
 import std;
 import :primitives;
 

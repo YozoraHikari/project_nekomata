@@ -1,5 +1,5 @@
 export module projnekomata;
-export import projnekomata.cs;
+export import projnekomata.corelib;
 export import :core.command.shell;
 export import :core.math;
 export import :core.ecs;

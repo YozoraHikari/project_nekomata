@@ -2,7 +2,7 @@ export module projnekomata:graphics.vulkan.context;
 import std;
 import vulkan;
 import vk_mem_alloc;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.platform.sdl;
 import :graphics.vulkan.vk_physical_device_props;
 import :graphics.vulkan.vk_queue;

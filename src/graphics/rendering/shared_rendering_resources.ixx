@@ -1,5 +1,5 @@
 export module projnekomata:graphics.rendering.shared_rendering_resources;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.meshsystem.mesh_asset_storage;
 import :graphics.vulkan.vk_pipeline_layout;
 import :graphics.vulkan.vk_pipeline_graphics;

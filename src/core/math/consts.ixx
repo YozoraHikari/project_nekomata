@@ -1,6 +1,6 @@
 export module projnekomata:core.math.consts;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 
 export namespace projnekomata::math::consts {
 

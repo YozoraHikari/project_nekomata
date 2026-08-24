@@ -1,6 +1,6 @@
 export module projnekomata:core.runtime.graphicsthread;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :core.runtime.shared_data;
 import :graphics.vulkan.vk_swapchain;

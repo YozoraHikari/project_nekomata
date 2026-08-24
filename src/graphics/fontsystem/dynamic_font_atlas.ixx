@@ -2,7 +2,7 @@ module;
 #include <xxhash.h>
 export module projnekomata:graphics.fontsystem.dynamic_font_atlas;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
 import :core.math;

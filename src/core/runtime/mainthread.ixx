@@ -1,6 +1,6 @@
 export module projnekomata:core.runtime.mainthread;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.runtime.shared_data;
 import :graphics.vulkan.context;
 import :core.platform.sdl;

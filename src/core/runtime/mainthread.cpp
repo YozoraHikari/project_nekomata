@@ -3,7 +3,7 @@ module;
 module projnekomata;
 import vulkan;
 import fmt;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.cmd_alloc;
 import :core.ecs.world.renderable;
 import :core.ecs.world.transform;

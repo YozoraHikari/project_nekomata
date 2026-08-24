@@ -3,7 +3,7 @@ module;
 #include <string.h>
 export module projnekomata:graphics.texturesystem.sampler_cache;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :graphics.vulkan.vk_sampler;
 

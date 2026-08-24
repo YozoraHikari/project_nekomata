@@ -2,7 +2,7 @@ module;
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 export module projnekomata:graphics.meshsystem.loader.mesh_loader;
-import projnekomata.cs;
+import projnekomata.corelib;
 import fmt;
 import :graphics.meshsystem.handles;
 import :core.fs.path_resolve;

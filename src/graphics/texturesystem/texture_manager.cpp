@@ -5,7 +5,7 @@ module;
 module projnekomata;
 import fmt;
 import vk_mem_alloc;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.cmd_alloc;
 import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.vulkan.vk_buffer;

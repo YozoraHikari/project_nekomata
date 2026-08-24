@@ -8,7 +8,7 @@ module;
 #else
 #error "Unsupported platform"
 #endif
-export module projnekomata.cs:mem;
+export module projnekomata.corelib:mem;
 import :panic;
 import :primitives;
 

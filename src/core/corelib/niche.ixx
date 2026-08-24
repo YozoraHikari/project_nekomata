@@ -1,4 +1,4 @@
-export module projnekomata.cs:niche;
+export module projnekomata.corelib:niche;
 import std;
 import :primitives;
 

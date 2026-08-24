@@ -1,5 +1,5 @@
 export module projnekomata:core.sfconfig;
-import projnekomata.cs;
+import projnekomata.corelib;
 import std;
 import :core.overloaded;
 

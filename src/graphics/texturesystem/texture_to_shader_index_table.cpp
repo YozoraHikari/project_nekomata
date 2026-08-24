@@ -1,5 +1,5 @@
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.texturesystem.texture_to_shader_index_table;
 
 namespace projnekomata::gfx {

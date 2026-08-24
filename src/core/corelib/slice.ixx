@@ -1,4 +1,4 @@
-export module projnekomata.cs:slice;
+export module projnekomata.corelib:slice;
 import :cmp_traits;
 import :iterators;
 import :primitives;

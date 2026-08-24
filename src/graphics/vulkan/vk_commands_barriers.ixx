@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.vk_commands_barriers;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import :graphics.vulkan.vk_image_trait;
 import :graphics.vulkan.vk_commands;

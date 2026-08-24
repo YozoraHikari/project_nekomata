@@ -1,6 +1,6 @@
 export module projnekomata:graphics.meshsystem.pool.mesh_pool;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
 import :graphics.vulkan.vk_buffer;

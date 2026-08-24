@@ -1,6 +1,6 @@
 export module projnekomata:graphics.materialsystem.mat_manager;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.vk_pipeline_layout;
 import :core.containers.freelist_pool;
 import :graphics.vulkan.vk_pipeline_graphics;

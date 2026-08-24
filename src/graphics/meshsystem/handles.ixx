@@ -1,5 +1,5 @@
 export module projnekomata:graphics.meshsystem.handles;
-import projnekomata.cs;
+import projnekomata.corelib;
 import std;
 import :graphics.meshsystem.pool.mesh_pool;
 import :core.math;

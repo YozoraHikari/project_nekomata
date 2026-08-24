@@ -1,5 +1,5 @@
 export module projnekomata:core.ui.nodes.panel;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :core.ui.nodes.node;
 
 export namespace projnekomata::ui {

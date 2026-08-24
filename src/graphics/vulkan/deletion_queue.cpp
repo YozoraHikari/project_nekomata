@@ -1,5 +1,5 @@
 module projnekomata;
-import projnekomata.cs;
+import projnekomata.corelib;
 import :graphics.vulkan.context;
 
 namespace projnekomata::gfx::vkrhi {

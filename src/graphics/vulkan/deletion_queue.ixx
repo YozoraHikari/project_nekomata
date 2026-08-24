@@ -1,6 +1,6 @@
 export module projnekomata:graphics.vulkan.deletion_queue;
 import std;
-import projnekomata.cs;
+import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
 import :core.containers.mpsc_queue;
