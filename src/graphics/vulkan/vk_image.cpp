@@ -71,24 +71,51 @@ std::unordered_map<vk::Format, ImageFormatMd> VulkanImage::s_formatMetadata = {
     { vk::Format::eBc7UnormBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
     { vk::Format::eBc7SrgbBlock,                              ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
 
-    // ASTC 4x4 - 4x4 blocks, 16 bytes per block
-    { vk::Format::eAstc4x4UnormBlock,                         ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
-    { vk::Format::eAstc4x4SrgbBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    // ASTC LDR formats - 4x4 to 12x12, 16 bytes per block
+    { vk::Format::eAstc4x4UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eAstc5x4UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 5, .blockHeight = 4 } },
+    { vk::Format::eAstc5x5UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 5, .blockHeight = 5 } },
+    { vk::Format::eAstc6x5UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 6, .blockHeight = 5 } },
+    { vk::Format::eAstc6x6UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 6, .blockHeight = 6 } },
+    { vk::Format::eAstc8x5UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 5 } },
+    { vk::Format::eAstc8x6UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 6 } },
+    { vk::Format::eAstc8x8UnormBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 8 } },
+    { vk::Format::eAstc10x5UnormBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 5 } },
+    { vk::Format::eAstc10x6UnormBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 6 } },
+    { vk::Format::eAstc10x8UnormBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 8 } },
+    { vk::Format::eAstc10x10UnormBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 10 } },
+    { vk::Format::eAstc12x10UnormBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 12, .blockHeight = 10 } },
+    { vk::Format::eAstc12x12UnormBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 12, .blockHeight = 12 } },
+
+    { vk::Format::eAstc4x4SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eAstc5x4SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 5, .blockHeight = 4 } },
+    { vk::Format::eAstc5x5SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 5, .blockHeight = 5 } },
+    { vk::Format::eAstc6x5SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 6, .blockHeight = 5 } },
+    { vk::Format::eAstc6x6SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 6, .blockHeight = 6 } },
+    { vk::Format::eAstc8x5SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 5 } },
+    { vk::Format::eAstc8x6SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 6 } },
+    { vk::Format::eAstc8x8SrgbBlock,                             ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 8, .blockHeight = 8 } },
+    { vk::Format::eAstc10x5SrgbBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 5 } },
+    { vk::Format::eAstc10x6SrgbBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 6 } },
+    { vk::Format::eAstc10x8SrgbBlock,                            ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 8 } },
+    { vk::Format::eAstc10x10SrgbBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 10, .blockHeight = 10 } },
+    { vk::Format::eAstc12x10SrgbBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 12, .blockHeight = 10 } },
+    { vk::Format::eAstc12x12SrgbBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 12, .blockHeight = 12 } },
 
     // ASTC 4x4 HDR - 4x4 blocks, 16 bytes per block
-    { vk::Format::eAstc4x4SfloatBlock,                        ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eAstc4x4SfloatBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
 
     // ETC2 - 4x4, 8 bytes per block
     { vk::Format::eEtc2R8G8B8A8SrgbBlock,                     ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
     { vk::Format::eEtc2R8G8B8A8UnormBlock,                    ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
 
     // EAC R11 - 4x4 blocks, 8 bytes per block
-    { vk::Format::eEacR11UnormBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
-    { vk::Format::eEacR11SnormBlock,                           ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eEacR11UnormBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eEacR11SnormBlock,                          ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 8, .blockWidth = 4, .blockHeight = 4 } },
 
     // EAC R11G11 - 4x4 blocks, 16 bytes per block
-    { vk::Format::eEacR11G11UnormBlock,                        ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
-    { vk::Format::eEacR11G11SnormBlock,                        ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eEacR11G11UnormBlock,                       ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
+    { vk::Format::eEacR11G11SnormBlock,                       ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eColor, .blockByteSize = 16, .blockWidth = 4, .blockHeight = 4 } },
 
     // Depth Formats
     {vk::Format::eD32Sfloat,                                  ImageFormatMd { .aspectFlags = vk::ImageAspectFlagBits::eDepth, .bpp = 4 }},
