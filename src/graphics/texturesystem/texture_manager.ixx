@@ -75,7 +75,7 @@ private:
 
     Texture m_defaultTexture;
 
-    FreelistPoolV2<TextureResources, kMaxTextureCount> m_loadedTextures = nullptr;
+    VaSlotmap<TextureResources, kMaxTextureCount> m_loadedTextures = nullptr;
     SamplerCache m_samplerCache;
 
     TextureToShaderIndexTable m_textureToShaderIndexTable = nullptr;

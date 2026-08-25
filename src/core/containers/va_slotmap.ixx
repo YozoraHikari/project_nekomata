@@ -20,17 +20,17 @@ struct TaggedIndex {
 
 export namespace projnekomata {
 
-template <typename T, u32 MaxElements, usize ChunkSizeHint = 65536> class FreelistPoolV2 {
+template <typename T, u32 MaxElements, usize ChunkSizeHint = 65536> class VaSlotmap {
 public:
-    FreelistPoolV2(std::nullptr_t) noexcept {}
-    ~FreelistPoolV2() {
+    VaSlotmap(std::nullptr_t) noexcept {}
+    ~VaSlotmap() {
         if (m_storage) Mem::vmDestroy(m_storage, MaxElements);
-        debug_assert(m_aliveCount.load(std::memory_order_acquire) == 0, "some of the allocated objects in a FreelistPoolV2 were not freed before its destruction");
+        debug_assert(m_aliveCount.load(std::memory_order_acquire) == 0, "some of the allocated objects in a VaSlotmap were not freed before its destruction");
     }
 
-    static auto create() -> FreelistPoolV2 {
+    static auto create() -> VaSlotmap {
         auto storage = Mem::vmReserve<Node>(MaxElements);
-        return FreelistPoolV2(storage);
+        return VaSlotmap(storage);
     }
 
     auto allocate() -> u32 {
@@ -66,7 +66,7 @@ private:
         T resource;
         u32 nextFree;
     };
-    FreelistPoolV2(Node* storage) : m_storage(storage) {}
+    VaSlotmap(Node* storage) : m_storage(storage) {}
 
     static constexpr auto kChunkSize = std::max(ChunkSizeHint, std::bit_ceil(sizeof(Node)));
     static constexpr auto kVaSize = sizeof(Node) * MaxElements;
@@ -110,7 +110,7 @@ private:
     // ---- Bump Allocation ------------------------------------------------------------------------------------------------------------------------------------
 
     auto ensureCapacityForNewElem(u32 elemIndex) -> void {
-        debug_assert(elemIndex < MaxElements, "FreelistPoolV2 exceeded max capacity");
+        debug_assert(elemIndex < MaxElements, "VaSlotmap exceeded max capacity");
         usize elemIndexUsize = static_cast<usize>(elemIndex);
         usize spaceNeeded = (elemIndexUsize + 1) * sizeof(Node);
         usize spaceCurr = m_storageCommittedBytes.load(std::memory_order_acquire);
@@ -134,28 +134,28 @@ private:
     }
 };
 
-template <u32 MaxElements, usize ChunkSizeHint = 65536> class NotypeFreelistPoolV2 {
+template <u32 MaxElements, usize ChunkSizeHint = 65536> class VaSlotmapNoType {
 public:
-    NotypeFreelistPoolV2(std::nullptr_t) noexcept {}
-    NotypeFreelistPoolV2(u8* storage, usize elemSize) : m_elemSize(elemSize), m_storage(storage) {}
-    ~NotypeFreelistPoolV2() {
+    VaSlotmapNoType(std::nullptr_t) noexcept {}
+    VaSlotmapNoType(u8* storage, usize elemSize) : m_elemSize(elemSize), m_storage(storage) {}
+    ~VaSlotmapNoType() {
         if (m_storage) Mem::vmDestroy(m_storage, MaxElements);
-        debug_assert(m_aliveCount.load(std::memory_order_acquire) == 0, "some of the allocated objects in a NotypeFreelistPoolV2 were not freed before its destruction");
+        debug_assert(m_aliveCount.load(std::memory_order_acquire) == 0, "some of the allocated objects in a VaSlotmapNoType were not freed before its destruction");
     }
 
-    NotypeFreelistPoolV2(const NotypeFreelistPoolV2&) = delete;
-    NotypeFreelistPoolV2& operator=(const NotypeFreelistPoolV2&) = delete;
-    NotypeFreelistPoolV2(NotypeFreelistPoolV2&&) = delete;
-    NotypeFreelistPoolV2& operator=(NotypeFreelistPoolV2&&) = delete;
+    VaSlotmapNoType(const VaSlotmapNoType&) = delete;
+    VaSlotmapNoType& operator=(const VaSlotmapNoType&) = delete;
+    VaSlotmapNoType(VaSlotmapNoType&&) = delete;
+    VaSlotmapNoType& operator=(VaSlotmapNoType&&) = delete;
 
-    static auto create(usize elemSize) -> NotypeFreelistPoolV2 {
+    static auto create(usize elemSize) -> VaSlotmapNoType {
         auto storage = Mem::vmReserve<u8>(MaxElements * elemSize);
-        return NotypeFreelistPoolV2(storage, elemSize);
+        return VaSlotmapNoType(storage, elemSize);
     }
 
-    static auto createUnique(usize elemSize) -> Unique<NotypeFreelistPoolV2> {
+    static auto createUnique(usize elemSize) -> Unique<VaSlotmapNoType> {
         auto storage = Mem::vmReserve<u8>(MaxElements * elemSize);
-        auto uniq = Unique<NotypeFreelistPoolV2>::create(storage, elemSize);
+        auto uniq = Unique<VaSlotmapNoType>::create(storage, elemSize);
         return uniq;
     }
 
@@ -238,7 +238,7 @@ private:
     // ---- Bump Allocation ------------------------------------------------------------------------------------------------------------------------------------
 
     auto ensureCapacityForNewElem(u32 elemIndex) -> void {
-        debug_assert(elemIndex < MaxElements, "FreelistPoolV2 exceeded max capacity");
+        debug_assert(elemIndex < MaxElements, "VaSlotmap exceeded max capacity");
         usize elemIndexUsize = static_cast<usize>(elemIndex);
         usize spaceNeeded = (elemIndexUsize + 1) * nodeSize();
         usize spaceCurr = m_storageCommittedBytes.load(std::memory_order_acquire);

@@ -32,7 +32,7 @@ public:
 private:
 
     MeshPool m_meshPool = nullptr;
-    FreelistPoolV2<LodList, 131072> m_lodLists = nullptr;
+    VaSlotmap<LodList, 131072> m_lodLists = nullptr;
 };
 
 }

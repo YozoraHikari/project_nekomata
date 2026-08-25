@@ -16,7 +16,7 @@ auto MeshAssetStorage::makeMeshPoolConfig() -> MeshPoolConfig {
     return poolConfig;
 }
 
-MeshAssetStorage::MeshAssetStorage() : m_meshPool(makeMeshPoolConfig()), m_lodLists(FreelistPoolV2<LodList, 131072>::create()) {}
+MeshAssetStorage::MeshAssetStorage() : m_meshPool(makeMeshPoolConfig()), m_lodLists(VaSlotmap<LodList, 131072>::create()) {}
 
 auto MeshAssetStorage::create() -> Unique<MeshAssetStorage> {
     debug_assert(g_meshAssetStorage == nullptr, "only one MeshAssetStorage may live at any given time");

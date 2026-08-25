@@ -64,23 +64,23 @@ public:
 
     [[nodiscard]] constexpr auto globalPipelineLayout() const noexcept -> const vkrhi::VulkanPipelineLayout& { return m_globalPipelineLayout; }
 
-    [[nodiscard]] constexpr auto materialShaderHeap() noexcept -> FreelistPoolV2<MaterialShader, 1024>& { return m_materialShaders; }
-    [[nodiscard]] constexpr auto materialShaderHeap() const noexcept -> const FreelistPoolV2<MaterialShader, 1024>& { return m_materialShaders; }
-    [[nodiscard]] constexpr auto materialParamHeap(usize structSize) noexcept -> NotypeFreelistPoolV2<4096>& { return *m_materialParamPoolsByStructSize[structSize]; }
-    [[nodiscard]] constexpr auto materialParamHeap(usize structSize) const noexcept -> const NotypeFreelistPoolV2<4096>& { return *m_materialParamPoolsByStructSize[structSize]; }
-    [[nodiscard]] constexpr auto materialParamHeapsMap() noexcept -> HashMap<usize, Unique<NotypeFreelistPoolV2<4096>>>& { return m_materialParamPoolsByStructSize; }
+    [[nodiscard]] constexpr auto materialShaderHeap() noexcept -> VaSlotmap<MaterialShader, 1024>& { return m_materialShaders; }
+    [[nodiscard]] constexpr auto materialShaderHeap() const noexcept -> const VaSlotmap<MaterialShader, 1024>& { return m_materialShaders; }
+    [[nodiscard]] constexpr auto materialParamHeap(usize structSize) noexcept -> VaSlotmapNoType<4096>& { return *m_materialParamPoolsByStructSize[structSize]; }
+    [[nodiscard]] constexpr auto materialParamHeap(usize structSize) const noexcept -> const VaSlotmapNoType<4096>& { return *m_materialParamPoolsByStructSize[structSize]; }
+    [[nodiscard]] constexpr auto materialParamHeapsMap() noexcept -> HashMap<usize, Unique<VaSlotmapNoType<4096>>>& { return m_materialParamPoolsByStructSize; }
 
     constexpr auto ensureMaterialParamHeapBin(usize structSize) noexcept -> void {
         if (m_materialParamPoolsByStructSize.contains(structSize)) return;
-        m_materialParamPoolsByStructSize.insert(structSize, NotypeFreelistPoolV2<4096>::createUnique(structSize));
+        m_materialParamPoolsByStructSize.insert(structSize, VaSlotmapNoType<4096>::createUnique(structSize));
     }
 
 private:
     static inline MaterialManager* g_instance = nullptr;
     vkrhi::VulkanPipelineLayout m_globalPipelineLayout = nullptr;
 
-    FreelistPoolV2<MaterialShader, 1024> m_materialShaders = FreelistPoolV2<MaterialShader, 1024>::create();
-    HashMap<usize, Unique<NotypeFreelistPoolV2<4096>>> m_materialParamPoolsByStructSize = HashMap<usize, Unique<NotypeFreelistPoolV2<4096>>>::create();
+    VaSlotmap<MaterialShader, 1024> m_materialShaders = VaSlotmap<MaterialShader, 1024>::create();
+    HashMap<usize, Unique<VaSlotmapNoType<4096>>> m_materialParamPoolsByStructSize = HashMap<usize, Unique<VaSlotmapNoType<4096>>>::create();
 
     friend class MaterialShaderBuilder;
 };

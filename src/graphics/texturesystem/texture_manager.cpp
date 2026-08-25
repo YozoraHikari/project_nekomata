@@ -23,7 +23,7 @@ TextureResources::TextureResources(vkrhi::VulkanImage&& image)
 
 TextureManager::TextureManager(std::nullptr_t) {}
 TextureManager::TextureManager(Unique<IShaderResourceTable>&& srt)
-    : m_loadedTextures(FreelistPoolV2<TextureResources, kMaxTextureCount>::create()), m_textureToShaderIndexTable(kMaxTextureCount), m_srt(std::move(srt)) {}
+    : m_loadedTextures(VaSlotmap<TextureResources, kMaxTextureCount>::create()), m_textureToShaderIndexTable(kMaxTextureCount), m_srt(std::move(srt)) {}
 
 auto TextureManager::create() -> Unique<TextureManager> {
     debug_assert(g_textureManager == nullptr, "only one TextureManager may live at any given time");
