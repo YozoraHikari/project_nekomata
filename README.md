@@ -1,9 +1,6 @@
 # Project Nekomata
 
-Just a plain 3D game engine using modern Vulkan.
-
-I don't expect it to be anywhere near ready to make actual stuff with; I mostly intend it to be a learning project.
-Well, maybe in the future..
+Vulkan 3D Engine using C++26 with modules mainly set for learning systems programming and computer graphics.
 
 ## Current Features
 
@@ -42,7 +39,7 @@ Note that the version numbers provided are what the project works with. Earlier 
 
 To build the project, you need the following dependencies:
 - Base development packages (e.g. `base-devel` on Arch Linux).
-- CMake 4.3.4. Not lower, not higher.
+- CMake 4.3. Not lower, not higher.
 - Clang 22 or later (GCC may work but not tested and is not really supported in the long run)
 - Vulkan SDK (the project typically requires the very latest version of the SDK but a couple versions back might work fine)
 - Slang compiler v2026.11 or later. Older versions might cause issues on AMD graphics cards due to a bug in the Slang compiler with NURI.
