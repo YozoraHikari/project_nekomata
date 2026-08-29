@@ -2,6 +2,7 @@ module;
 #include <string.h>
 module projnekomata;
 import vulkan;
+import fmt;
 import vk_mem_alloc;
 import :graphics.vulkan.context;
 import :graphics.vulkan.vk_queue_family_swizzling;
@@ -18,6 +19,7 @@ FrameRenderingResources::FrameRenderingResources(u32 initialMaxObjects) {
 
     auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     m_transformsBuffer = vkrhi::VulkanBuffer::builder()
+        .name("Frame Transforms")
         .len(initialMaxObjects * sizeof(Transforms))
         .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
         .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -27,6 +29,7 @@ FrameRenderingResources::FrameRenderingResources(u32 initialMaxObjects) {
         .build();
 
     m_globalDataBuffer = vkrhi::VulkanBuffer::builder()
+        .name("Frame Shader Global Data")
         .len(sizeof(ShGlobalData))
         .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
         .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -36,6 +39,7 @@ FrameRenderingResources::FrameRenderingResources(u32 initialMaxObjects) {
         .build();
 
     m_pointlightsBuffer = vkrhi::VulkanBuffer::builder()
+        .name("Frame Pointlights")
         .len(1024 * sizeof(PointlightData))
         .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
         .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -62,6 +66,7 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
     auto srtSamplerHandlesData = renderingData.m_textureToSamplerShaderIndexSnapshot.asSlice();
     if (m_textureToSrtImageIDBuffer.vkBuffer() == nullptr || m_textureToSrtImageIDBuffer.size() < srtImageHandlesData.len() * sizeof(u32)) {
         m_textureToSrtImageIDBuffer = vkrhi::VulkanBuffer::builder()
+            .name("Texture to SRT Image ID Buffer")
             .len(srtImageHandlesData.len() * sizeof(u32))
             .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
             .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -73,6 +78,7 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
 
     if (m_textureToSrtSamplerIDBuffer.vkBuffer() == nullptr || m_textureToSrtSamplerIDBuffer.size() < srtSamplerHandlesData.len() * sizeof(u32)) {
         m_textureToSrtSamplerIDBuffer = vkrhi::VulkanBuffer::builder()
+            .name("Texture to SRT Sampler ID Buffer")
             .len(srtSamplerHandlesData.len() * sizeof(u32))
             .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
             .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -90,7 +96,9 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
     for (auto& [size, heapdata] : renderingData.m_materialHeapSnapshotsBySize.iter()) {
         // make sure we have an appropriate size buffer first:
         if (!m_materialPropBuffersBySize.contains(size)) {
+            auto name = fmt::format("Material Prop Buffer, len: {}", size);
             auto buffer = vkrhi::VulkanBuffer::builder()
+                .name(name)
                 .len(heapdata.len())
                 .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
                 .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
@@ -101,7 +109,10 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
 
             m_materialPropBuffersBySize.insert(size, std::move(buffer));
         } else if (m_materialPropBuffersBySize[size].size() < heapdata.len()) {
+            // if the buffer is too small, resize it:
+            auto name = fmt::format("Material Prop Buffer, len: {}", size);
             m_materialPropBuffersBySize[size] = vkrhi::VulkanBuffer::builder()
+                .name(name)
                 .len(heapdata.len())
                 .usage(vk::BufferUsageFlagBits::eShaderDeviceAddress | vk::BufferUsageFlagBits::eStorageBuffer)
                 .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)

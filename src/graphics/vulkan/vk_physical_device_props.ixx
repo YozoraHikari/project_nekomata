@@ -144,6 +144,7 @@ public:
     bool m_hasAMDAntiLag2       = false;
     bool m_hasPipelineStatisticsQuery = false;
     bool m_hasTessellation      = false;
+    bool m_hasPipelineExecutableProperties = false;
 
     bool m_textureFormatSupportBC4 = false;
     bool m_textureFormatSupportBC5 = false;

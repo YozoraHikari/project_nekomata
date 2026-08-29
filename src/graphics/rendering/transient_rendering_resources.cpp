@@ -56,31 +56,37 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
     auto colorMutableFormats = StaticSlice<const vk::Format>::inst<vk::Format::eR8G8B8A8Srgb, vk::Format::eR8G8B8A8Unorm>();
 
     m_depthBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Depth Buffer")
         .format(vk::Format::eD32Sfloat)
         .usage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_albedoAndRoughnessBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("G-Buffer Albedo and Roughness Buffer")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_normalBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("G-Buffer Normal Buffer")
         .format(vk::Format::eR16G16B16A16Snorm)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_metallicAndAoBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("G-Buffer Metallic and AO Buffer")
         .format(vk::Format::eR8G8Unorm)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_velocityBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Velocity Buffer")
         .format(vk::Format::eR16G16Sfloat)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_colorBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Color Buffer")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .mutableFormat(colorMutableFormats)
@@ -89,12 +95,14 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
     m_colorBufferUnormView = m_colorBuffer.createImageViewWithFormat(vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1, false);
 
     m_smaaColorResolvedBuffer0 = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("SMAA Color Resolved Buffer 0")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst)
         .mutableFormat(colorMutableFormats)
         .build();
 
     m_smaaColorResolvedBuffer1 = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("SMAA Color Resolved Buffer 1")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst)
         .mutableFormat(colorMutableFormats)
@@ -104,16 +112,19 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
     m_smaaColorResolvedBuffer1UnormView = m_smaaColorResolvedBuffer1.createImageViewWithFormat(vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1, false);
 
     m_smaaEdgesImage = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("SMAA Edges Image")
         .format(vk::Format::eR8G8Unorm)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_smaaWeightsImage = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("SMAA Weights Image")
         .format(vk::Format::eR8G8B8A8Unorm)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
     m_postSmaaImage = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Post SMAA Image")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .mutableFormat(colorMutableFormats)
@@ -122,8 +133,9 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
     m_postSmaaImageUnormView = m_postSmaaImage.createImageViewWithFormat(vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1, false);
 
     m_finalImage = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Final Image")
         .format(vk::Format::eR8G8B8A8Srgb)
-        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
+        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc)
         .mutableFormat(colorMutableFormats)
         .build();
 

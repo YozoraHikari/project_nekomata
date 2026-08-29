@@ -143,7 +143,7 @@ SharedRenderingResources::SharedRenderingResources() {
 
     m_bitmapFontRendererLayout = vkrhi::VulkanPipelineLayout::builder()
         .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
-        .addPushConstantRange(0, 44, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
+        .addPushConstantRange(0, 48, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment)
         .build();
     auto bitmapFontRendererShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/bitmap_font.spv").unwrap();
     m_bitmapFontRendererPipeline = vkrhi::VulkanGraphicsPipeline::builder()

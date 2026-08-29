@@ -19,7 +19,8 @@ using VulkanFeaturePtr = FlatVariant<
     vk::Bool32 vk::PhysicalDevicePipelineBinaryFeaturesKHR::*,
     vk::Bool32 vk::PhysicalDeviceAntiLagFeaturesAMD::*,
     vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*,
-    vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*
+    vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*,
+    vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::*
 >;
 
 struct RequiredFeatureRule {
@@ -119,6 +120,10 @@ static auto kOptFeaturesPipelineStatisticsQuery = std::to_array<VulkanFeaturePtr
 static auto kOptExtensionsTessellation = emptyArray<std::string_view>();
 static auto kOptFeaturesTessellation = std::to_array<VulkanFeaturePtr>({ &vk::PhysicalDeviceFeatures::tessellationShader });
 
+// for PipelineExecutableProperties
+static auto kOptExtensionsPipelineExecutableProperties = std::to_array<std::string_view>({ vk::KHRPipelineExecutablePropertiesExtensionName });
+static auto kOptFeaturesPipelineExecutableProperties = std::to_array<VulkanFeaturePtr>({ &vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::pipelineExecutableInfo });
+
 // Table
 static auto kOptionalPhysicalDeviceFeatures = std::to_array<OptFeatureRule>({
     { "FP16 Arithmetic"sv,                                   kOptExtensionsFp16, kOptFeaturesFp16, &VulkanPhysicalDeviceProperties::m_hasFp16 },
@@ -131,6 +136,7 @@ static auto kOptionalPhysicalDeviceFeatures = std::to_array<OptFeatureRule>({
     { "AMD Anti-Lag 2"sv,                                    kOptExtensionsAMDAntiLag2, kOptFeaturesAMDAntiLag2, &VulkanPhysicalDeviceProperties::m_hasAMDAntiLag2 },
     { "Pipeline Statistics Query"sv,                         kOptExtensionsPipelineStatisticsQuery, kOptFeaturesPipelineStatisticsQuery, &VulkanPhysicalDeviceProperties::m_hasPipelineStatisticsQuery },
     { "Tessellation"sv,                                      kOptExtensionsTessellation, kOptFeaturesTessellation, &VulkanPhysicalDeviceProperties::m_hasTessellation },
+    { "Pipeline Executable Properties"sv,                    kOptExtensionsPipelineExecutableProperties, kOptFeaturesPipelineExecutableProperties, &VulkanPhysicalDeviceProperties::m_hasPipelineExecutableProperties }
 });
 // clang-format on
 
@@ -246,7 +252,8 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
         vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceVulkan14Features,
         vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDevicePipelineBinaryFeaturesKHR,
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
-        vk::PhysicalDeviceImageViewMinLodFeaturesEXT, vk::PhysicalDeviceAntiLagFeaturesAMD
+        vk::PhysicalDeviceImageViewMinLodFeaturesEXT, vk::PhysicalDeviceAntiLagFeaturesAMD,
+        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR
     >();
 
     for (auto& rule : kRequiredPhysicalDeviceFeatures) {
@@ -296,7 +303,8 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
                 [&](vk::Bool32 vk::PhysicalDevicePipelineBinaryFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDevicePipelineBinaryFeaturesKHR>().*(ptr); },
                 [&](vk::Bool32 vk::PhysicalDeviceAntiLagFeaturesAMD::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceAntiLagFeaturesAMD>().*(ptr); },
                 [&](vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>().*(ptr); },
-                [&](vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>().*(ptr); }
+                [&](vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>().*(ptr); },
+                [&](vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR>().*(ptr); }
             );
         }
 
@@ -327,10 +335,10 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
         props.*(rule.m_setsIfSupported) = supportedAsTexture;
     }
 
-    auto enableDebug = kVulkanDebugEnable && supportedExtensionNames.contains(vk::EXTDebugUtilsExtensionName);
+    auto enableDebug = kVulkanWantsDebugUtils && supportedExtensionNames.contains(vk::EXTDebugUtilsExtensionName);
     if (enableDebug) enabledExtensions.emplace(vk::EXTDebugUtilsExtensionName);
 
-    if (kVulkanDebugEnable && !enableDebug) {
+    if (kVulkanWantsDebugUtils && !enableDebug) {
         log::warn("Vulkan debug extension is enabled but not supported by the device");
     }
 

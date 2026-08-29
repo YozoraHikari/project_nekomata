@@ -2,6 +2,7 @@ module;
 #include <xxhash.h>
 export module projnekomata:graphics.fontsystem.dynamic_font_atlas;
 import std;
+import fmt;
 import projnekomata.corelib;
 import vulkan;
 import vk_mem_alloc;
@@ -80,7 +81,9 @@ struct DynamicBitmapFontAtlas {
     }
 
     auto pushNewImage(u32 width, u32 height) -> void {
+        auto name = fmt::format("Font bitmap atlas image #{}", m_atlasTextures.size());
         auto image = vkrhi::VulkanImage::builder()
+            .name(name)
             .type(vk::ImageType::e2D)
             .extentsrd(vk::Extent3D { width, height, 1 }, 1, 1)
             .isCubemap(false)

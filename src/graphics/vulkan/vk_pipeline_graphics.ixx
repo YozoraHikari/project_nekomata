@@ -216,8 +216,47 @@ public:
         } else {
             sc.unlink<vk::RenderingInputAttachmentIndexInfo>();
         }
+        if (VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineExecutableProperties) {
+            sc.get<vk::PipelineCreateFlags2CreateInfo>().flags |= vk::PipelineCreateFlagBits2::eCaptureStatisticsKHR;
+        }
 
         auto pipeline = VulkanContext::get().shaderCache()->createGraphicsPipeline(sc);
+
+        if (VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineExecutableProperties) {
+            auto pipelineObjInfo = vk::PipelineInfoKHR{}.setPipeline(pipeline);
+
+            log::info(" ----- Pipeline Info -----");
+            auto executables = Vec<vk::PipelineExecutablePropertiesKHR>::fromStdVector(vkCheckResult(VulkanContext::get().vkDevice().getPipelineExecutablePropertiesKHR(pipelineObjInfo)));
+
+            for (auto [i, executable] : executables.iter().enumerate()) {
+                log::info("  Executable {} \"{}\":", i, std::string(executable.name));
+                log::info("    Description: {}", std::string(executable.description));
+                log::info("    Stages: {}", vk::to_string(executable.stages));
+                log::info("    Wave lane count: {}", executable.subgroupSize);
+                log::info("    Statistics:");
+
+                auto execInfo = vk::PipelineExecutableInfoKHR{}.setPipeline(pipeline).setExecutableIndex(i);
+                auto execStats = Vec<vk::PipelineExecutableStatisticKHR>::fromStdVector(vkCheckResult(VulkanContext::get().vkDevice().getPipelineExecutableStatisticsKHR(execInfo)));
+
+                for (auto [j, stat] : execStats.iter().enumerate()) {
+                    log::info("      #{}: {} ({})", j, std::string(stat.name), std::string(stat.description));
+                    switch (stat.format) {
+                        case vk::PipelineExecutableStatisticFormatKHR::eUint64:
+                            log::info("        Value: {}", stat.value.u64);
+                            break;
+                        case vk::PipelineExecutableStatisticFormatKHR::eInt64:
+                            log::info("        Value: {}", stat.value.i64);
+                            break;
+                        case vk::PipelineExecutableStatisticFormatKHR::eFloat64:
+                            log::info("        Value: {}", stat.value.f64);
+                            break;
+                        case vk::PipelineExecutableStatisticFormatKHR::eBool32:
+                            log::info("        Value: {}", stat.value.b32);
+                            break;
+                    }
+                }
+            }
+        }
 
         return VulkanGraphicsPipeline(std::move(pipeline));
     }

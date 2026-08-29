@@ -5,6 +5,7 @@ import vulkan;
 import vk_mem_alloc;
 import :graphics.vulkan.vk_gpu_obrm;
 import :graphics.vulkan.context;
+import :graphics.vulkan.dbg_object_names;
 
 export namespace projnekomata::gfx::vkrhi {
 
@@ -45,7 +46,7 @@ private:
     u64 m_size{};
 };
 
-class VulkanBufferBuilder {
+class VulkanBufferBuilder : public BuilderObjectNameMixin<VulkanBufferBuilder> {
 public:
     auto len(u64 len) noexcept -> VulkanBufferBuilder& { m_bufferCreateInfo.setSize(len); return *this; }
     auto usage(vk::BufferUsageFlags usage) noexcept -> VulkanBufferBuilder& { m_bufferCreateInfo.setUsage(usage); return *this; }
@@ -68,6 +69,8 @@ public:
         m_allocationCreateInfo.flags |= mappedMemoryBit;
 
         auto [allocation, buffer] = vkCheckResult(VulkanContext::get().vmaAllocator().createBuffer(m_bufferCreateInfo, m_allocationCreateInfo)).split();
+
+        dbgApplyDebugName(*buffer);
 
         auto memoryDevicePtr = vk::DeviceAddress(nullptr);
         if (m_bufferCreateInfo.usage & vk::BufferUsageFlagBits::eShaderDeviceAddress) {

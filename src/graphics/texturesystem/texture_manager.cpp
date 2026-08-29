@@ -263,7 +263,9 @@ auto TextureManager::uploadKtx2Image(std::string name, Texture texture, ktxTextu
     auto imageFormat = static_cast<vk::Format>(ktxTexture2_GetVkFormat(ktxData));
 
     // Vulkan Image
+    auto dname = fmt::format("Texture: \"{}\"", name);
     auto image = vkrhi::VulkanImage::builder()
+        .name(dname)
         .type(vk::ImageType::e2D)
         .extentsrd(vk::Extent3D { imageWidth, imageHeight, imageDepth }, imageArrayLayers, imageMipLevels)
         .isCubemap(imageIsCubemap)

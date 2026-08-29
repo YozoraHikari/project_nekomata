@@ -9,6 +9,11 @@ import :graphics.vulkan.vk_queue;
 
 export namespace projnekomata::gfx::vkrhi {
 
+constexpr bool kVulkanValidationLayersEnable = false;
+constexpr bool kVulkanDebugObjectNamesEnable = true;
+
+constexpr bool kVulkanWantsDebugUtils = kVulkanDebugObjectNamesEnable || kVulkanValidationLayersEnable;
+
 template <typename T> inline auto vkCheckResult(vk::ResultValue<T> x, std::source_location loc = std::source_location::current()) {
     if (x.result != vk::Result::eSuccess) {
         panic("Vulkan result check failed: returned {} (Original check location in {}:{})", vk::to_string(x.result), loc.file_name(), loc.line());
@@ -32,8 +37,6 @@ constexpr std::string_view antiLagMethodToString(AntiLagMethod method) {
         case AntiLagMethod::AMDAntiLag2: return "AMD Anti-Lag 2";
     }
 }
-
-constexpr bool kVulkanDebugEnable = false;
 
 class VulkanContext {
 public:

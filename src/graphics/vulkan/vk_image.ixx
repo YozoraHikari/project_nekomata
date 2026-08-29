@@ -8,6 +8,7 @@ import :graphics.vulkan.vk_gpu_obrm;
 import :graphics.vulkan.vk_image_trait;
 import :graphics.vulkan.vk_queue_family_swizzling;
 import :graphics.vulkan.context;
+import :graphics.vulkan.dbg_object_names;
 
 export namespace projnekomata::gfx::vkrhi {
 
@@ -75,7 +76,7 @@ private:
 };
 static_assert(CVulkanImage<VulkanImage> && "VulkanImage must satisfy CVulkanImage");
 
-class VulkanImageBuilder {
+class VulkanImageBuilder : public BuilderObjectNameMixin<VulkanImageBuilder> {
 public:
     constexpr auto type(vk::ImageType type) -> VulkanImageBuilder& { imageCreateInfo().setImageType(type); return *this; }
     constexpr auto extents(vk::Extent3D extents) -> VulkanImageBuilder& { imageCreateInfo().setExtent(extents); return *this; }
@@ -104,7 +105,9 @@ public:
         imageCreateInfo().sharingMode = imageCreateInfo().queueFamilyIndexCount == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent;
         
         auto [allocation, image] = vkCheckResult(VulkanContext::get().vmaAllocator().createImage(imageCreateInfo(), m_allocationCreateInfo)).split();
-        
+
+        dbgApplyDebugName(*image);
+
         auto imageViewType = selectFullImageViewType();
         auto imageViewSubresRange = vk::ImageSubresourceRange{}
             .setBaseMipLevel(0)

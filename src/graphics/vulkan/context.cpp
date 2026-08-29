@@ -186,12 +186,12 @@ auto VulkanContext::createVkInstance(vk::raii::Context& vkRaiiContext, bool& deb
     auto instanceExtensions = projnekomata::SdlWindow::vulkanInstanceExtensions();
 
     bool supportsDebug = availableInstanceExtensionNames.contains(vk::EXTDebugUtilsExtensionName);
-    if (kVulkanDebugEnable && supportsDebug) instanceExtensions.emplace(vk::EXTDebugUtilsExtensionName);
+    if (kVulkanWantsDebugUtils && supportsDebug) instanceExtensions.emplace(vk::EXTDebugUtilsExtensionName);
 
-    if (kVulkanDebugEnable && !supportsDebug) {
+    if (kVulkanWantsDebugUtils && !supportsDebug) {
         log::warn("Vulkan debug extension is enabled but not supported by the instance");
     }
-    debuggingEnabled = kVulkanDebugEnable && supportsDebug;
+    debuggingEnabled = kVulkanWantsDebugUtils && supportsDebug;
 
     auto instanceExtensionsC = instanceExtensions.iter()
         .map([](auto&& ext) { return ext.c_str(); })
@@ -199,7 +199,7 @@ auto VulkanContext::createVkInstance(vk::raii::Context& vkRaiiContext, bool& deb
 
     auto instanceLayersC = Vec<const char*>::create();
 
-    if (kVulkanDebugEnable && availableInstanceLayerNames.contains("VK_LAYER_KHRONOS_validation"))
+    if (kVulkanValidationLayersEnable && availableInstanceLayerNames.contains("VK_LAYER_KHRONOS_validation"))
         instanceLayersC.emplace("VK_LAYER_KHRONOS_validation");
 
     auto instanceInfo = vk::InstanceCreateInfo{}
@@ -272,10 +272,10 @@ auto VulkanContext::createVkDevice(const vk::raii::PhysicalDevice& vkPhysicalDev
         vkPhysicalDeviceProps.m_enabledVk12Features,
         vkPhysicalDeviceProps.m_enabledVk13Features,
         vkPhysicalDeviceProps.m_enabledVk14Features,
-        vk::PhysicalDeviceImageViewMinLodFeaturesEXT{}.setMinLod(true),
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR{}.setAccelerationStructure(true),
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{}.setRayTracingPipeline(true),
         vk::PhysicalDeviceAntiLagFeaturesAMD{}.setAntiLag(true),
+        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR{}.setPipelineExecutableInfo(true)
     };
 
     if (!vkPhysicalDeviceProps.m_hasRayTracing) {
@@ -285,6 +285,10 @@ auto VulkanContext::createVkDevice(const vk::raii::PhysicalDevice& vkPhysicalDev
 
     if (!vkPhysicalDeviceProps.m_hasAMDAntiLag2) {
         chain.unlink<vk::PhysicalDeviceAntiLagFeaturesAMD>();
+    }
+
+    if (!vkPhysicalDeviceProps.m_hasPipelineExecutableProperties) {
+        chain.unlink<vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR>();
     }
 
     auto device = vkCheckResult(vkPhysicalDevice.createDevice(chain.get<vk::DeviceCreateInfo>()));
