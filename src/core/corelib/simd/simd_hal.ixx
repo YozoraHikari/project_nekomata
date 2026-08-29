@@ -78,16 +78,10 @@ export template <typename T, usize N> struct SimdReg {
     constexpr auto operator[](usize i)       noexcept -> T&       { return m_data[i]; }
 
     constexpr auto all() const noexcept -> bool {
-        for (usize i = 0; i < N; i++) {
-            if (!m_data[i]) return false;
-        }
-        return true;
+        return __builtin_reduce_and(m_data != 0);
     }
     constexpr auto any() const noexcept -> bool {
-        for (usize i = 0; i < N; i++) {
-            if (m_data[i]) return true;
-        }
-        return false;
+        return __builtin_reduce_or(m_data) != 0;
     }
 
     constexpr auto cmplaneEq(const SimdReg<T, N>& other) const noexcept -> SimdReg<typename ScalarElements<sizeof(T)>::Int, N> {
