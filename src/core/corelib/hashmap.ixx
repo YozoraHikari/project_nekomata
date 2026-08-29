@@ -1,11 +1,10 @@
 module;
 #include <cstdlib>
 #include <xxhash.h>
-#include <emmintrin.h>
-#include <mmintrin.h>
 #include <string.h>
 export module projnekomata.corelib:hashmap;
 import :assertions;
+import :simd;
 import :mem;
 import :iterators;
 import :option;
@@ -115,14 +114,14 @@ public:
         u8 h2 = computeH2(hash);
         usize index = hashHomeIndex(hash);
 
-        __m128i needle = _mm_set1_epi8(h2);
-        __m128i empty = _mm_set1_epi8(kCtrlSentinelEmpty);
+        u8x16 needle = u8x16::broadcast(h2);
+        u8x16 empty = u8x16::broadcast(kCtrlSentinelEmpty);
 
         for (usize step = 0; step < m_capacity; step += 16) {
             usize base = step + index;
 
-            __m128i group = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_ctrls + base));
-            u32 matches = _mm_movemask_epi8(_mm_cmpeq_epi8(group, needle));
+            u8x16 group = u8x16::loadUnaligned(m_ctrls + base);
+            u32 matches = group.cmplaneEq(needle).movemask();
 
             while (matches) {
                 u32 bit = __builtin_ctz(matches);
@@ -130,8 +129,8 @@ public:
                 if (m_entries[slot].key == key) return Some(std::ref(m_entries[slot].value));
                 matches &= (matches - 1);
             }
-            u32 emptyCount = _mm_movemask_epi8(_mm_cmpeq_epi8(group, empty));
-            if (emptyCount) return None;
+
+            if (group.cmplaneEq(empty).any()) return None;
         }
         return None;
     }
@@ -141,14 +140,14 @@ public:
         u8 h2 = computeH2(hash);
         usize index = hashHomeIndex(hash);
 
-        __m128i needle = _mm_set1_epi8(h2);
-        __m128i empty = _mm_set1_epi8(kCtrlSentinelEmpty);
+        u8x16 needle = u8x16::broadcast(h2);
+        u8x16 empty = u8x16::broadcast(kCtrlSentinelEmpty);
 
         for (usize step = 0; step < m_capacity; step += 16) {
             usize base = step + index;
 
-            __m128i group = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_ctrls + base));
-            u32 matches = _mm_movemask_epi8(_mm_cmpeq_epi8(group, needle));
+            u8x16 group = u8x16::loadUnaligned(m_ctrls + base);
+            u32 matches = group.cmplaneEq(needle).movemask();
 
             while (matches) {
                 u32 bit = __builtin_ctz(matches);
@@ -156,8 +155,8 @@ public:
                 if (m_entries[slot].key == key) return Some(std::cref(m_entries[slot].value));
                 matches &= (matches - 1);
             }
-            u32 emptyCount = _mm_movemask_epi8(_mm_cmpeq_epi8(group, empty));
-            if (emptyCount) return None;
+
+            if (group.cmplaneEq(empty).any()) return None;
         }
         return None;
     }
@@ -186,15 +185,14 @@ public:
         u8 h2 = computeH2(hash);
         usize index = hashHomeIndex(hash);
 
-        __m128i needle = _mm_set1_epi8(h2);
-        __m128i empty = _mm_set1_epi8(kCtrlSentinelEmpty);
+        u8x16 needle = u8x16::broadcast(h2);
+        u8x16 empty = u8x16::broadcast(kCtrlSentinelEmpty);
 
         for (usize step = 0; step < m_capacity; step += 16) {
             usize base = step + index;
 
-            __m128i group = _mm_loadu_si128(reinterpret_cast<const __m128i*>(m_ctrls + base));
-
-            u32 matches = _mm_movemask_epi8(_mm_cmpeq_epi8(group, needle));
+            u8x16 group = u8x16::loadUnaligned(m_ctrls + base);
+            u32 matches = group.cmplaneEq(needle).movemask();
 
             while (matches) {
                 u32 bit = __builtin_ctz(matches);
@@ -204,8 +202,7 @@ public:
                 matches &= (matches - 1);
             }
 
-            u32 emptyCount = _mm_movemask_epi8(_mm_cmpeq_epi8(group, empty));
-            if (emptyCount) return None;
+            if (group.cmplaneEq(empty).any()) return None;
         }
         return None;
     }
