@@ -33,10 +33,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ----------------------------------------------------------------------------------------------------------------------
 #     Dependencies
 
-find_package(Vulkan REQUIRED)
+find_package(VulkanHeaders REQUIRED)
 find_package(SDL3 REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(utf8cpp REQUIRED)
+
+get_target_property(VULKAN_INCLUDE_DIR Vulkan::Headers INTERFACE_INCLUDE_DIRECTORIES)
 
 set(SHADOW_CMAKE_GENERATOR_SET OFF)
 if(CMAKE_GENERATOR MATCHES "^Ninja")
@@ -146,9 +148,9 @@ target_link_libraries(VulkanModule PUBLIC Vulkan::Headers)
 target_sources(VulkanModule
         PUBLIC
         FILE_SET CXX_MODULES
-        BASE_DIRS ${Vulkan_INCLUDE_DIRS}
+        BASE_DIRS ${VULKAN_INCLUDE_DIR}
         FILES
-        ${Vulkan_INCLUDE_DIRS}/vulkan/vulkan.cppm
+        ${VULKAN_INCLUDE_DIR}/vulkan/vulkan.cppm
 )
 set_target_properties(VulkanModule PROPERTIES
         CXX_SCAN_FOR_MODULES ON
@@ -269,6 +271,7 @@ target_compile_options(
         -fvisibility=hidden
         -fvisibility-inlines-hidden
         -fno-semantic-interposition
+        -ftime-trace
 
         -Wall
         -Wextra
