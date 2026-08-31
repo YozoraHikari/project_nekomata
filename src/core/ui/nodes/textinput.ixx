@@ -40,7 +40,7 @@ public:
     auto buildDrawCmds(BuildCtx& ctx, InheritanceCtx inheritanceCtx, math::Aabb2f bounds) -> math::Vector2f override {
         if (!visible) {
             UiSystem::get().releaseFocusIfMatches(this);
-            return math::Vector2f(0.0f);
+            return math::Vector2f::zero();
         }
 
         if (ctx.focusedElement == this) {

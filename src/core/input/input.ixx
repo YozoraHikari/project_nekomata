@@ -45,8 +45,8 @@ private:
     MouseMode m_mouseMode              = MouseMode::Normal;
     MouseMode m_systemCurrentMouseMode = MouseMode::Normal;
 
-    math::Vector2f m_mousePosition = math::Vector2f(0);
-    math::Vector2f m_mouseDelta    = math::Vector2f(0);
+    math::Vector2f m_mousePosition = math::Vector2f::zero();
+    math::Vector2f m_mouseDelta    = math::Vector2f::zero();
 };
 
 }

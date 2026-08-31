@@ -15,14 +15,14 @@ public:
     
     Extent2D posOffset = Extent2D(ExtentPx{0.f}, ExtentPx{0.f});
     Extent2D size = Extent2D(ExtentPercent{100.f}, ExtentPercent{100.f});
-    math::Vector2f anchor = math::Vector2f(0.0f, 0.0f);
+    math::Vector2f anchor = math::Vector2f::zero();
 
     auto scanForUnrasterizedGlyphs(Vec<FontRasterBatch>& dstFontRasterBatches, gfx::DynamicBitmapFontAtlas& fontAtlas) -> void override {
         m_child->scanForUnrasterizedGlyphs(dstFontRasterBatches, fontAtlas);
     }
 
     auto buildDrawCmds(BuildCtx& ctx, InheritanceCtx inheritanceCtx, math::Aabb2f bounds) -> math::Vector2f override {
-        if (!visible) return math::Vector2f(0.0f);
+        if (!visible) return math::Vector2f::zero();
 
         auto position = resolveExtent2D(posOffset.x, posOffset.y, bounds.extents());
         auto si = resolveExtent2D(size.x, size.y, bounds.extents());
@@ -84,7 +84,7 @@ enum class AnchorPreset {
 
 constexpr auto resolveAnchorPreset(AnchorPreset preset) -> math::Vector2f {
     switch (preset) {
-        case AnchorPreset::TopLeft: return math::Vector2f(0.0f, 0.0f);
+        case AnchorPreset::TopLeft: return math::Vector2f::zero();
         case AnchorPreset::TopCenter: return math::Vector2f(0.5f, 0.0f);
         case AnchorPreset::TopRight: return math::Vector2f(1.0f, 0.0f);
         case AnchorPreset::MiddleLeft: return math::Vector2f(0.0f, 0.5f);

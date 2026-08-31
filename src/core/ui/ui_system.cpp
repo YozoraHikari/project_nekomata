@@ -46,7 +46,7 @@ auto UiSystem::buildUi(Vec<ui::UiDrawCmd>& drawcmds, gfx::DynamicBitmapFontAtlas
         .parentIsFocused = false
     };
 
-    m_uiRoot->buildDrawCmds(buildCtx, inheritanceCtx, Aabb2f(Vector2f(0.0f), screenLogicalSize));
+    m_uiRoot->buildDrawCmds(buildCtx, inheritanceCtx, Aabb2f(Vector2f::zero(), screenLogicalSize));
 
     if (!m_textInputActive && m_textInputCtx.dstText != nullptr) {
         log::info("Text Input is now active");

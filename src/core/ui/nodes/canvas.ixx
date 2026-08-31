@@ -18,7 +18,7 @@ public:
     }
 
     auto buildDrawCmds(BuildCtx& ctx, InheritanceCtx inheritanceCtx, math::Aabb2f bounds) -> math::Vector2f override {
-        if (!visible) return math::Vector2f(0.0f);
+        if (!visible) return math::Vector2f::zero();
 
         for (auto& child : m_children) child->buildDrawCmds(ctx, inheritanceCtx, bounds);
         return bounds.extents();

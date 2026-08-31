@@ -11,6 +11,8 @@ add_compile_options(
         -fno-exceptions
         -fno-plt
         -fexperimental-library
+        -fenable-matrix
+        -fmatrix-memory-layout=column-major
 
         -fno-math-errno
         -fno-trapping-math

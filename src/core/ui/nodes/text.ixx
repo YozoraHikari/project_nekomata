@@ -24,7 +24,7 @@ public:
     float size;
 
     auto buildDrawCmds(BuildCtx& ctx, InheritanceCtx inheritanceCtx, math::Aabb2f bounds) -> math::Vector2f override {
-        if (!visible) return math::Vector2f(0.0f);
+        if (!visible) return math::Vector2f::zero();
 
         auto glyphs = FontManager::get().shapeText(fontFace, ctx.fontAtlas, text, size, false).first;
         ctx.drawCmds.emplace(UiTextDrawCmd{

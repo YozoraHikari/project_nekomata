@@ -94,7 +94,7 @@ auto FontManager::rasterizeGlyphs(FontRasterInfo rasterInfo) -> void {
             if (imageSize == 0) {
                 // Empty glyph, but we have to encode parameters
                 u32 glyphIndex = FT_Get_Char_Index(fontEntry.face, glyph);
-                rasterInfo.atlas.insertGlyphParam(batch.fontFace, batch.pixelSize, glyphIndex, math::Vector2f(0.0f, 0.0f), math::Vector2f(0.0f, 0.0f), 0,
+                rasterInfo.atlas.insertGlyphParam(batch.fontFace, batch.pixelSize, glyphIndex, math::Vector2f::zero(), math::Vector2f::zero(), 0,
     { (float)slot->bitmap_left,  (float)slot->bitmap_top  }, { 0, 0 }, slot->advance.x / 64.0f);
                 continue;
             }
@@ -168,7 +168,7 @@ auto FontManager::measureText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas,
     std::scoped_lock faceLock(fontEntry.rasterMutex);
     bool hasKerning = FT_HAS_KERNING(fontEntry.face);
 
-    math::Vector2f totalSize = math::Vector2f(0.0f, 0.0f);
+    math::Vector2f totalSize = math::Vector2f::zero();
 
     auto lineLen = 0.0_f32;
     u32 previousGlyphIndex = 0;
@@ -219,7 +219,7 @@ auto FontManager::shapeText(FontFace font, gfx::DynamicBitmapFontAtlas& atlas, s
     auto glyphFeedbacks = Vec<GlyphFeedback>::create();
     if (feedback) glyphFeedbacks.reserveExact(text.size());
 
-    math::Vector2f cursor = math::Vector2f(0.0f, 0.0f);
+    math::Vector2f cursor = math::Vector2f::zero();
     u32 previousGlyphIndex = 0;
 
     for (auto it = utf8::iterator(text.begin(), text.begin(), text.end()); it != utf8::iterator(text.end(), text.begin(), text.end()); it++) {

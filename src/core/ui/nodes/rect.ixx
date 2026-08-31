@@ -16,7 +16,7 @@ public:
     ElementStyle style = ElementStyle();
 
     auto buildDrawCmds(BuildCtx& ctx, InheritanceCtx inheritanceCtx, math::Aabb2f bounds) -> math::Vector2f override {
-        if (!visible) return math::Vector2f(0.0f);
+        if (!visible) return math::Vector2f::zero();
 
         ctx.drawCmds.emplace(UiRectDrawCmd{
             .ssBegin  = bounds.min(),

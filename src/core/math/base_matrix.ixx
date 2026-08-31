@@ -3,442 +3,189 @@ import std;
 import projnekomata.corelib;
 import :core.math.consts;
 
+static_assert(__has_extension(matrix_types_scalar_division));
+
 export namespace projnekomata::math {
 
-template <typename T, usize NRows> class MatrixStorageVector {
+template <typename T, usize R, usize C> class Matrix {
 public:
-    using Type = T[NRows];
-
-    MatrixStorageVector() = default;
-    MatrixStorageVector(const MatrixStorageVector&) = default;
-
-    Type m_memory;
-
-    void broadcast(T x) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] = x;
-        }
-    }
-
-    T& operator[](usize row) {
-        return m_memory[row];
-    }
-
-    const T& operator[](usize row) const {
-        return m_memory[row];
-    }
-
-    MatrixStorageVector& operator+=(const MatrixStorageVector& other) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] += other.m_memory[i];
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator-=(const MatrixStorageVector& other) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] -= other.m_memory[i];
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator*=(T scalar) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] *= scalar;
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator/=(T scalar) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] /= scalar;
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator=(const MatrixStorageVector& other) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] = other.m_memory[i];
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator+=(T scalar) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] += scalar;
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator-=(T scalar) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] -= scalar;
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator*=(const MatrixStorageVector& other) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] *= other.m_memory[i];
-        }
-        return *this;
-    }
-    MatrixStorageVector& operator/=(const MatrixStorageVector& other) {
-        for (usize i = 0; i < NRows; i++) {
-            m_memory[i] /= other.m_memory[i];
-        }
-        return *this;
-    }
-
-    MatrixStorageVector operator+(const MatrixStorageVector& other) const {
-        MatrixStorageVector result = *this;
-        result += other;
-        return result;
-    }
-    MatrixStorageVector operator-(const MatrixStorageVector& other) const {
-        MatrixStorageVector result = *this;
-        result -= other;
-        return result;
-    }
-    MatrixStorageVector operator*(T scalar) const {
-        MatrixStorageVector result = *this;
-        result *= scalar;
-        return result;
-    }
-    MatrixStorageVector operator/(T scalar) const {
-        MatrixStorageVector result = *this;
-        result /= scalar;
-        return result;
-    }
-    MatrixStorageVector operator+(T scalar) const {
-        MatrixStorageVector result = *this;
-        result += scalar;
-        return result;
-    }
-    MatrixStorageVector operator-(T scalar) const {
-        MatrixStorageVector result = *this;
-        result -= scalar;
-        return result;
-    }
-    MatrixStorageVector operator*(const MatrixStorageVector& other) const {
-        MatrixStorageVector result = *this;
-        result *= other;
-        return result;
-    }
-    MatrixStorageVector operator/(const MatrixStorageVector& other) const {
-        MatrixStorageVector result = *this;
-        result /= other;
-        return result;
-    }
-};
-
-template <typename T, usize NCols, usize NRows> class MatrixStorage {
-public:
-    using TVecType = MatrixStorageVector<T, NRows>;
-    using Type = TVecType[NCols];
-
-    Type m_memory;
-
-    void broadcast(T x) {
-        for (usize i = 0; i < NCols; i++) {
-            for (usize j = 0; j < NRows; j++) {
-                m_memory[i][j] = x;
-            }
-        }
-    }
-    
-    TVecType& operator[](usize c) {
-        return m_memory[c];
-    }
-
-    const TVecType& operator[](usize c) const {
-        return m_memory[c];
-    }
-
-    T& operator[](usize row, usize col) {
-        return reinterpret_cast<T*>(&m_memory[col])[row];
-    }
-
-    const T& operator[](usize row, usize col) const {
-        return reinterpret_cast<const T*>(&m_memory[col])[row];
-    }
-};
-
-template <typename T, usize NCols, usize NRows>
-/**
- * @brief A templated class representing a matrix with fixed dimensions and various mathematical operations.
- *
- * @tparam T The type of the elements stored in the matrix.
- * @tparam NCols The number of columns in the matrix.
- * @tparam NRows The number of rows in the matrix.
- */
-class Matrix {
-public:
-    MatrixStorage<T, NCols, NRows> m_data;
-
     Matrix() = default;
+    Matrix(std::initializer_list<T> list) {
+        debug_assert(list.size() == R * C, "The initializer list must have the same size as the matrix.");
 
-
-    Matrix(T broadcastValue) {
-        m_data.broadcast(broadcastValue);
+        auto it = list.begin();
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                mself(r, c) = *it++;
     }
-
-    Matrix(std::initializer_list<T> ilist) {
-        debug_assert(ilist.size() == NCols * NRows, "The initializer list must have the same size as the matrix.");
-
-        auto it = ilist.begin();
-        for (usize row = 0; row < NRows; row++) {
-            for (usize col = 0; col < NCols; col++) {
-                m_data[row, col] = *it;
-                it++;
-            }
-        }
+    explicit Matrix(T value) {
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                mself(r, c) = value;
     }
 
     template <typename... Args>
-        requires (sizeof...(Args) == NCols * NRows)
+        requires (sizeof...(Args) == R * C)
               && (std::is_convertible_v<Args, T> && ...)
-    Matrix(Args&&... args) {
+    explicit Matrix(Args&&... args) {
         T flat[] = { static_cast<T>(std::forward<Args>(args))... };
-        for (usize c = 0; c < NCols; c++)
-            for (usize r = 0; r < NRows; r++)
-                m_data[r, c] = flat[c * NRows + r];
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                mself(r, c) = flat[r * C + c];
     }
 
-    static Matrix identity() requires (NCols == NRows) {
-        Matrix m{};
-        for (usize i = 0; i < NCols; i++)
-            m.m_data[i, i] = T{1};
-        return m;
-    }
-
-    T& operator[](usize r, usize c) {
-        return m_data[r, c];
-    }
-
-    const T& operator[](usize r, usize c) const {
-        return m_data[r, c];
-    }
-
-    auto& column(usize c) {
-        return m_data[c];
-    }
-
-    [[nodiscard]] const auto& column(usize c) const {
-        return m_data[c];
-    }
-
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Addition / Subtraction
-
-    Matrix operator+(const Matrix& other) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-                result.m_data[col] = this->m_data[col] + other.m_data[col];
-
-        return result;
-    }
-    Matrix& operator+=(const Matrix& other) { return *this = *this + other; }
-
-    Matrix operator-(const Matrix& other) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-            result.m_data[col] = this->m_data[col] - other.m_data[col];
-
-        return result;
-    }
-    Matrix& operator-=(const Matrix& other) { return *this = *this - other; }
-
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Scalar Multiplication
-
-    Matrix operator*(T scalar) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-            result.m_data[col] = m_data[col] * scalar;
-
-        return result;
-    }
-    friend Matrix operator*(T scalar, const Matrix& m) { return m * scalar; }
-    Matrix& operator*=(T scalar) { return *this = *this * scalar; }
-
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Matrix Multiplication
-
-    template <usize KCols>
-    Matrix<T, KCols, NRows> operator*(const Matrix<T, KCols, NCols>& other) const {
-        Matrix<T, KCols, NRows> result{};
-
-        for (usize col = 0; col < KCols; col++) {
-            typename MatrixStorage<T, 1, NRows>::TVecType acc{};
-
-            for (usize vc = 0; vc < NCols; vc++) {
-                T scalar = other.m_data[vc, col];
-                acc += m_data[vc] * scalar;
-            }
-
-            result.m_data[col] = acc;
-        }
-
+    constexpr static auto fill(T value) -> Matrix {
+        Matrix result{};
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                result[r, c] = value;
         return result;
     }
 
-    template <usize KCols>
-    Matrix<T, KCols, NRows>& operator*=(Matrix mtx) { return *this = *this * mtx; }
-
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Component-wise Matrix Multiplication
-
-    [[nodiscard]] Matrix componentWiseMultiply(const Matrix& other) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-            result.m_data[col] = m_data[col] * other.m_data[col];
-
+    constexpr static auto identity() -> Matrix requires (R == C) {
+        Matrix result{};
+        for (usize i = 0; i < R; i++)
+            result[i, i] = T(1);
         return result;
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Scalar Division
-
-    Matrix operator/(T scalar) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-            result.m_data[col] = m_data[col] / scalar;
-
-        return result;
-    }
-    friend Matrix operator/(T scalar, const Matrix& m) {
-        Matrix result;
-        for (usize col = 0; col < NCols; col++)
-            result.m_data[col] = scalar / m.m_data[col];
-        return result;
-    }
-    Matrix& operator/=(T scalar) { return *this = *this / scalar; }
-
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Component-wise Matrix Division
-
-    [[nodiscard]] Matrix componentWiseDivide(const Matrix& other) const {
-        Matrix result;
-
-        for (usize col = 0; col < NCols; col++)
-            for (usize row = 0; row < NRows; row++)
-                result.m_data[col] = m_data[col] / other.m_data[col];
-
-        return result;
+    constexpr static auto zero() -> Matrix {
+        return fill(T(0));
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Transposition
-
-    [[nodiscard]] auto transpose() const -> Matrix<T, NRows, NCols> {
-        Matrix<T, NRows, NCols> result{};
-        for (usize col = 0; col < NCols; col++)
-            for (usize row = 0; row < NRows; row++)
-                result.m_data[row][col] = m_data[col][row];
-        return result;
+    constexpr static auto one() -> Matrix {
+        return fill(T(1));
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------------------------------------
+    constexpr auto operator[](usize r, usize c) const -> const T& { return mself(r, c); }
+    constexpr auto operator[](usize r, usize c)       ->       T& { return mself(r, c); }
 
-    bool operator==(const Matrix& other) const {
-        for (usize col = 0; col < NCols; col++)
-            for (usize row = 0; row < NRows; row++)
-                if (m_data[col][row] != other.m_data[col][row])
-                    return false;
+
+    constexpr auto operator+=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() + other.loadAccelForm()); return *this; }
+    constexpr auto operator-=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() - other.loadAccelForm()); return *this; }
+    constexpr auto operator*=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() * other.loadAccelForm()); return *this; }
+    constexpr auto operator+=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() + scalar); return *this; }
+    constexpr auto operator-=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() - scalar); return *this; }
+    constexpr auto operator*=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() * scalar); return *this; }
+    constexpr auto operator/=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() / scalar); return *this; }
+
+    constexpr friend auto operator+(Matrix lhs, const Matrix& rhs) -> Matrix { return lhs += rhs; }
+    constexpr friend auto operator+(Matrix lhs, const T& rhs) -> Matrix { return lhs += rhs; }
+    constexpr friend auto operator+(const T& rhs, Matrix lhs) -> Matrix { return lhs += rhs; }
+    constexpr friend auto operator-(Matrix lhs, const Matrix& rhs) -> Matrix { return lhs -= rhs; }
+    constexpr friend auto operator-(Matrix lhs, const T& rhs) -> Matrix { return lhs -= rhs; }
+    constexpr friend auto operator-(const T& rhs, Matrix lhs) -> Matrix { return lhs -= rhs; }
+    constexpr friend auto operator*(Matrix lhs, const T& rhs) -> Matrix { return lhs *= rhs; }
+    constexpr friend auto operator*(const T& rhs, Matrix lhs) -> Matrix { return lhs *= rhs; }
+    constexpr friend auto operator/(Matrix lhs, const T& rhs) -> Matrix { return lhs /= rhs; }
+    constexpr friend auto operator/(const T& rhs, Matrix lhs) -> Matrix { return lhs /= rhs; }
+
+    template <usize Nc>
+    constexpr friend auto operator*(Matrix lhs, const Matrix<T, C, Nc>& rhs) -> Matrix<T, R, Nc> {
+        return Matrix<T, R, Nc>(lhs.loadAccelForm() * rhs.loadAccelForm());
+    }
+
+    constexpr auto operator==(const Matrix& other) const -> bool {
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                if (mself(r, c) != other[r, c]) return false;
         return true;
     }
-    bool operator!=(const Matrix& other) const { return !(*this == other); }
+    constexpr auto operator!=(const Matrix& other) const -> bool { return !(*this == other); }
 
-    // ---------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Vector Operations
+    constexpr auto componentWiseMultiply(const Matrix& other) const -> Matrix {
+        Matrix result{};
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                result[r, c] = mself(r, c) * other[r, c];
+        return result;
+    }
+    constexpr auto componentWiseDivide(const Matrix& other) const -> Matrix {
+        Matrix result{};
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                result[r, c] = mself(r, c) / other[r, c];
+        return result;
+    }
 
-    [[nodiscard]] T& x() requires (NCols == 1 && NRows >= 1) { return m_data[0, 0]; };
-    [[nodiscard]] T& y() requires (NCols == 1 && NRows >= 2) { return m_data[1, 0]; };
-    [[nodiscard]] T& z() requires (NCols == 1 && NRows >= 3) { return m_data[2, 0]; };
-    [[nodiscard]] T& w() requires (NCols == 1 && NRows >= 4) { return m_data[3, 0]; };
+    constexpr auto transpose() const -> Matrix {
+        return Matrix(__builtin_matrix_transpose(loadAccelForm()));
+    }
 
+    constexpr auto x() const -> const T& { return mself(0, 0); }
+    constexpr auto y() const -> const T& { return mself(1, 0); }
+    constexpr auto z() const -> const T& { return mself(2, 0); }
+    constexpr auto w() const -> const T& { return mself(3, 0); }
+    constexpr auto x()       ->       T& { return mself(0, 0); }
+    constexpr auto y()       ->       T& { return mself(1, 0); }
+    constexpr auto z()       ->       T& { return mself(2, 0); }
+    constexpr auto w()       ->       T& { return mself(3, 0); }
 
-    [[nodiscard]] const T& x() const requires (NCols == 1 && NRows >= 1) { return m_data[0, 0]; };
-    [[nodiscard]] const T& y() const requires (NCols == 1 && NRows >= 2) { return m_data[1, 0]; };
-    [[nodiscard]] const T& z() const requires (NCols == 1 && NRows >= 3) { return m_data[2, 0]; };
-    [[nodiscard]] const T& w() const requires (NCols == 1 && NRows >= 4) { return m_data[3, 0]; };
-
-    [[nodiscard]] constexpr T sum() const requires (NCols == 1) {
+    constexpr auto sum() const -> T {
         T sum = T(0);
-        
-        for (usize i = 0; i < NRows; i++) {
-            sum += m_data[i, 0];
-        }
-
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                sum += mself(r, c);
         return sum;
     }
-
-    [[nodiscard]] T dot(const Matrix& other) const requires (NCols == 1) {
-        return componentWiseMultiply(other)
-            .sum();
+    constexpr auto prod() const -> T {
+        T prod = T(1);
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                prod *= mself(r, c);
+        return prod;
     }
 
-    [[nodiscard]] Matrix<T, 1, 3> cross(const Matrix<T, 1, 3>& other) const requires (NCols == 1 && NRows == 3) {
-        return {
+    constexpr auto dot(const Matrix& other) const -> T requires (C == 1) {
+        return componentWiseMultiply(other).sum();
+    }
+
+    constexpr auto cross(const Matrix& other) const -> Matrix<T, 3, 1> requires (C == 1 && R == 3) {
+        return Matrix<T, 3, 1>(
             y() * other.z() - z() * other.y(),
             z() * other.x() - x() * other.z(),
             x() * other.y() - y() * other.x()
-        };
+        );
     }
 
-    [[nodiscard]] float lengthSquared() const requires (NCols == 1) {
+    constexpr auto lengthSquared() const -> T requires (C == 1) {
         return dot(*this);
     }
 
-    [[nodiscard]] float length() const requires (NCols == 1) {
+    constexpr auto length() const -> T requires (C == 1) {
         return std::sqrt(lengthSquared());
     }
-    
-    [[nodiscard]] Matrix normalize() const requires (NCols == 1) {
+
+    constexpr auto normalize() const -> Matrix requires (C == 1) {
         return *this / length();
     }
 
-    [[nodiscard]] Matrix round() const {
+    constexpr auto round() const -> Matrix {
         Matrix result;
-        for (usize col = 0; col < NCols; col++)
-            for (usize row = 0; row < NRows; row++)
-                result.m_data[col][row] = std::round(m_data[col][row]);
+        for (usize r = 0; r < R; r++)
+            for (usize c = 0; c < C; c++)
+                result[r, c] = std::round(mself(r, c));
         return result;
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Decomposition
-    [[nodiscard]] Matrix<T, 1, 3> decomposePosition() const requires (NCols == 4 && NRows == 4) {
-        return {
-            m_data[0, 3],
-            m_data[1, 3],
-            m_data[2, 3]
-        };
+    constexpr auto decomposePosition() const -> Matrix<T, 3, 1> requires (C == 4 && R == 4) {
+        return submatrix<3, 1>(0, 3);
     }
 
-    // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Matrix Inverse
 
-    [[nodiscard]] Option<Matrix> inverse() const requires (NCols == NRows && NRows <= 4) {
-        if constexpr (NRows == 1) return invertMatrix1x1(*this);
-        if constexpr (NRows == 2) return invertMatrix2x2(*this);
-        if constexpr (NRows == 3) return invertMatrix3x3(*this);
-        if constexpr (NRows == 4) return invertMatrix4x4(*this);
+    [[nodiscard]] Option<Matrix> inverse() const requires (C == R && R <= 4) {
+        if constexpr (R == 1) return invertMatrix1x1(*this);
+        if constexpr (R == 2) return invertMatrix2x2(*this);
+        if constexpr (R == 3) return invertMatrix3x3(*this);
+        if constexpr (R == 4) return invertMatrix4x4(*this);
 
         // TODO: Add a fallback later. For the moment it's not necessary.
         return None;
     }
 
-    [[nodiscard]] Matrix inverseRigid() const requires (NCols == 4 && NRows == 4) {
-        Matrix<T, 3, 3> rotMat = {
-            m_data[0, 0], m_data[0, 1], m_data[0, 2],
-            m_data[1, 0], m_data[1, 1], m_data[1, 2],
-            m_data[2, 0], m_data[2, 1], m_data[2, 2]
-        };
-        Matrix<T, 1, 3> transl = {
-            m_data[0, 3],
-            m_data[1, 3],
-            m_data[2, 3]
-        };
+    [[nodiscard]] Matrix inverseRigid() const requires (C == 4 && R == 4) {
+        Matrix<T, 3, 3> rotMat = submatrix<3, 3>(0, 0);
+        Matrix<T, 3, 1> transl = submatrix<3, 1>(0, 3);
 
         auto rotInverse = rotMat.transpose(); // for rotation matrices transposition is inversion
         auto translInverse = rotInverse * transl * -1.0f;
@@ -451,10 +198,40 @@ public:
         };
     }
 
+    template <usize R2, usize C2> constexpr auto submatrix(usize atRow, usize atCol) const -> Matrix<T, R2, C2> {
+        debug_assert(atRow + R2 <= R, "submatrix out of bounds by row address");
+        debug_assert(atCol + C2 <= C, "submatrix out of bounds by column address");
+        auto ptr = m_data + (atRow + atCol * R);
+        auto accelForm = __builtin_matrix_column_major_load(ptr, R2, C2, R);
+        return Matrix<T, R2, C2>(accelForm);
+    }
+
+private:
+    using AccelMatrixType __attribute__((matrix_type(R, C))) = T;
+    using Storage = T[R * C];
+    Storage m_data;
+
+    constexpr auto loadAccelForm() const -> AccelMatrixType {
+        return __builtin_matrix_column_major_load(m_data, R, C, R);
+    }
+    constexpr auto storeAccelForm(AccelMatrixType data) -> void {
+        __builtin_matrix_column_major_store(data, m_data, R);
+    }
+
+    Matrix(Storage data) : m_data(data) {}
+    Matrix(AccelMatrixType data) {
+        storeAccelForm(data);
+    }
+
+    template <typename, usize, usize> friend class Matrix;
+
+    constexpr auto mself(usize r, usize c) const -> const T& { return m_data[c * R + r]; }
+    constexpr auto mself(usize r, usize c)       ->       T& { return m_data[c * R + r]; }
+
     /// Inverts a 1x1 matrix.
     ///
     /// It does so by simply computing the reciprocal of the element.
-    auto invertMatrix1x1(Matrix<T, 1, 1> mat) const -> Option<Matrix<T, 1, 1>> {
+    static auto invertMatrix1x1(Matrix<T, 1, 1> mat) -> Option<Matrix<T, 1, 1>> {
         T det = mat[0, 0];
 
         if (std::abs(det) < consts::epsilonValue<T>()) {
@@ -468,7 +245,7 @@ public:
     /// Inverts a 2x2 matrix.
     ///
     /// Uses the 1/det (ad-bc) formula.
-    auto invertMatrix2x2(Matrix<T, 2, 2> mat) const -> Option<Matrix<T, 2, 2>> {
+    static auto invertMatrix2x2(Matrix<T, 2, 2> mat) -> Option<Matrix<T, 2, 2>> {
         T a = mat[0, 0];
         T b = mat[0, 1];
         T c = mat[1, 0];
@@ -488,14 +265,14 @@ public:
         Matrix result = {
             d * invDet, -b * invDet,
            -c * invDet,  a * invDet
-       };
+        };
         return Some(result);
     }
 
     /// Inverts a 3x3 matrix.
     ///
     /// Uses the cofactor and adjugate method.
-    auto invertMatrix3x3(Matrix<T, 3, 3> mat) const -> Option<Matrix<T, 3, 3>> {
+    static auto invertMatrix3x3(Matrix<T, 3, 3> mat) -> Option<Matrix<T, 3, 3>> {
         T m00 = mat[0, 0], m01 = mat[0, 1], m02 = mat[0, 2];
         T m10 = mat[1, 0], m11 = mat[1, 1], m12 = mat[1, 2];
         T m20 = mat[2, 0], m21 = mat[2, 1], m22 = mat[2, 2];
@@ -535,7 +312,7 @@ public:
     /// Inverts a 4x4 matrix.
     ///
     /// Uses a cofactor expansion struck using 2x2 subdeterminants to avoid all 3x3 determinant calculations.
-    auto invertMatrix4x4(Matrix<T, 4, 4> mat) const -> Option<Matrix<T, 4, 4>> {
+    static auto invertMatrix4x4(Matrix<T, 4, 4> mat) -> Option<Matrix<T, 4, 4>> {
         T m00 = mat[0, 0], m01 = mat[0, 1], m02 = mat[0, 2], m03 = mat[0, 3];
         T m10 = mat[1, 0], m11 = mat[1, 1], m12 = mat[1, 2], m13 = mat[1, 3];
         T m20 = mat[2, 0], m21 = mat[2, 1], m22 = mat[2, 2], m23 = mat[2, 3];
@@ -581,6 +358,7 @@ public:
         };
         return Some(result);
     }
+
 };
 
 } // namespace projnekomata::math

@@ -72,7 +72,7 @@ public:
 
         auto escapeOverlayMeme1 = projnekomata::ui::UIBox::builder()
             .child(
-                projnekomata::ui::UIImage::create(ts1, Vector2f(0.0f), Vector2f(1.0f))
+                projnekomata::ui::UIImage::create(ts1, Vector2f::zero(), Vector2f::one())
             )
             .position({800.0f, 50.0f})
             .extent({250.0f, 250.0f})
@@ -80,7 +80,7 @@ public:
 
         auto escapeOverlayMeme2 = projnekomata::ui::UIBox::builder()
             .child(
-                projnekomata::ui::UIImage::create(ts2, Vector2f(0.0f), Vector2f(1.0f))
+                projnekomata::ui::UIImage::create(ts2, Vector2f::zero(), Vector2f::one())
             )
             .position({800.0f, 310.0f})
             .extent({320.0f, 320.0f})
@@ -88,7 +88,7 @@ public:
 
         auto escapeOverlayMeme3 = projnekomata::ui::UIBox::builder()
             .child(
-                projnekomata::ui::UIImage::create(ts3, Vector2f(0.0f), Vector2f(1.0f))
+                projnekomata::ui::UIImage::create(ts3, Vector2f::zero(), Vector2f::one())
             )
             .position({800.0f, 640.0f})
             .extent({250.0f, 275.0f})
@@ -96,7 +96,7 @@ public:
 
         auto escapeOverlayMeme4 = projnekomata::ui::UIBox::builder()
             .child(
-                projnekomata::ui::UIImage::create(ts4, Vector2f(0.0f), Vector2f(1.0f))
+                projnekomata::ui::UIImage::create(ts4, Vector2f::zero(), Vector2f::one())
             )
             .position({1200.0f, 200.0f})
             .extent({400.0f, 350.0f})
@@ -104,7 +104,7 @@ public:
 
         auto escapeOverlayMeme5 = projnekomata::ui::UIBox::builder()
             .child(
-                projnekomata::ui::UIImage::create(ts5, Vector2f(0.0f), Vector2f(1.0f))
+                projnekomata::ui::UIImage::create(ts5, Vector2f::zero(), Vector2f::one())
             )
             .position({1200.0f, 600.0f})
             .extent({400.0f, 380.0f})

@@ -69,7 +69,7 @@ auto MainThread::loop(float dt) -> void {
     auto logicalSize = m_sdlWindow.getLogicalSize();
     auto logicalSizeFloat = math::Vector2f(logicalSize.x(), logicalSize.y());
     SDL_Event event;
-    auto totalMouseDelta = math::Vector2f(0.0f);
+    auto totalMouseDelta = math::Vector2f::zero();
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
         case SDL_EVENT_QUIT: {

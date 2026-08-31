@@ -20,9 +20,12 @@ public:
     [[nodiscard]] auto computeModelMatrix() const -> Matrix4x4f {
         auto mat = m_rotation.toRotationMatrix();
 
-        mat.column(0) *= m_scale.x();
-        mat.column(1) *= m_scale.y();
-        mat.column(2) *= m_scale.z();
+        for (usize i = 0; i < 3; i++) {
+            mat[i, 0] *= m_scale.x();
+            mat[i, 1] *= m_scale.y();
+            mat[i, 2] *= m_scale.z();
+        }
+
         mat[0, 3] = m_position.x();
         mat[1, 3] = m_position.y();
         mat[2, 3] = m_position.z();
