@@ -22,6 +22,7 @@ public:
 
     [[nodiscard]] vkrhi::VulkanImage& depthBuffer() { return m_depthBuffer; }
     [[nodiscard]] vkrhi::VulkanImage& albedoAndRoughnessBuffer() { return m_albedoAndRoughnessBuffer; }
+    [[nodiscard]] vkrhi::VulkanImage& emissiveBuffer() { return m_emissiveBuffer; }
     [[nodiscard]] vkrhi::VulkanImage& normalBuffer() { return m_normalBuffer; }
     [[nodiscard]] vkrhi::VulkanImage& metallicAndAoBuffer() { return m_metallicAndAoBuffer; }
     [[nodiscard]] vkrhi::VulkanImage& velocityBuffer() { return m_velocityBuffer; }
@@ -44,6 +45,7 @@ public:
 
     [[nodiscard]] auto depthBufferIndex()                       const -> SRTResourceIndex { return m_depthBufferIndex;                       }
     [[nodiscard]] auto albedoAndRoughnessBufferIndex()          const -> SRTResourceIndex { return m_albedoAndRoughnessBufferIndex;          }
+    [[nodiscard]] auto emissiveBufferIndex()                    const -> SRTResourceIndex { return m_emissiveBufferIndex;                    }
     [[nodiscard]] auto normalBufferIndex()                      const -> SRTResourceIndex { return m_normalBufferIndex;                      }
     [[nodiscard]] auto metallicAndAoBufferIndex()               const -> SRTResourceIndex { return m_metallicAndAoBufferIndex;               }
     [[nodiscard]] auto velocityBufferIndex()                    const -> SRTResourceIndex { return m_velocityBufferIndex;                    }
@@ -65,6 +67,7 @@ private:
     // Render Targets
     vkrhi::VulkanImage m_depthBuffer = nullptr;
     vkrhi::VulkanImage m_albedoAndRoughnessBuffer = nullptr;
+    vkrhi::VulkanImage m_emissiveBuffer = nullptr;
     vkrhi::VulkanImage m_normalBuffer = nullptr;
     vkrhi::VulkanImage m_metallicAndAoBuffer = nullptr;
     vkrhi::VulkanImage m_velocityBuffer = nullptr;
@@ -84,6 +87,7 @@ private:
 
     SRTResourceIndex m_depthBufferIndex              = {};
     SRTResourceIndex m_albedoAndRoughnessBufferIndex = {};
+    SRTResourceIndex m_emissiveBufferIndex           = {};
     SRTResourceIndex m_normalBufferIndex             = {};
     SRTResourceIndex m_metallicAndAoBufferIndex      = {};
     SRTResourceIndex m_velocityBufferIndex           = {};

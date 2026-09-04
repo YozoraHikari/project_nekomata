@@ -12,6 +12,7 @@ struct PushConstants {
     uint pointlightCount;
     uint depthTextureSrtID;
     uint albedoAndRoughnessTextureSrtID;
+    uint emissiveTextureSrtID;
     uint normalTextureSrtID;
     uint metallicAoTextureSrtID;
     uint skyboxTextureSrtID;
@@ -145,7 +146,7 @@ float3 computeLightContribution(float3 norm, float3 viewdir, float3 lightdir, fl
 }
 
 const static float roughnessMaxLod = 6.0f;
-float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm, float3 albedo, float metallic, float roughness, float ao) {
+float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm, float3 albedo, float3 emissive, float metallic, float roughness, float ao) {
     float3 viewdir = normalize(s_pushConstants.globalData.cameraPos - fragmentPosWS);
     float3 accum = float3(0.0);
 
@@ -182,13 +183,14 @@ float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm
 
     float3 ambient = (kdibl * diffuseibl + specularibl) * ao;
 
-    return ambient + accum;
+    return emissive + ambient + accum;
 }
 
 [shader("fragment")]
 float4 main(VSOut input) : SV_Target {
     let depth = s_textures2D[s_pushConstants.depthTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).r;
     let albedoAndRoughness = s_textures2D[s_pushConstants.albedoAndRoughnessTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0);
+    let emissive = s_textures2D[s_pushConstants.emissiveTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).xyz;
     let pn = s_textures2D[s_pushConstants.normalTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0);
     let metallicAo = s_textures2D[s_pushConstants.metallicAoTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).xy;
 
@@ -213,7 +215,7 @@ float4 main(VSOut input) : SV_Target {
     float metallic = metallicAo.r;
     float ao = metallicAo.g;
 
-    float3 color = computePixelColor(position, n, geometricN, albedo, metallic, roughness, ao) * exposure;
+    float3 color = computePixelColor(position, n, geometricN, albedo, emissive, metallic, roughness, ao) * exposure;
     float3 tonemapped = AcesTonemap::map(color);
     tonemapped += (interleavedGradientNoise(input.position.xy) - 0.5) / 255.0;
 

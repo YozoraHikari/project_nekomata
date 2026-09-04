@@ -273,6 +273,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
         )
+        .insertImageMemoryBarrier(transientRenderingResources.emissiveBuffer(),
+            vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
+            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
+        )
         .insertImageMemoryBarrier(transientRenderingResources.normalBuffer(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
@@ -301,6 +305,11 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
+    auto emissiveAttachmentInfo = vk::RenderingAttachmentInfo{}
+        .setImageView(transientRenderingResources.emissiveBuffer().vkImageViewWholeSize())
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
     auto normalAttachmentInfo = vk::RenderingAttachmentInfo{}
         .setImageView(transientRenderingResources.normalBuffer().vkImageViewWholeSize())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -323,7 +332,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setClearValue(vk::ClearDepthStencilValue{}.setDepth(0.0f));
 
-    auto colorAttachments = std::array<vk::RenderingAttachmentInfo, 4>{albedoAndRoughnessAttachmentInfo, normalAttachmentInfo, metallicAndAoAttachmentInfo, velocityBufferAttachmentInfo};
+    auto colorAttachments = std::array<vk::RenderingAttachmentInfo, 5>{albedoAndRoughnessAttachmentInfo, emissiveAttachmentInfo, normalAttachmentInfo, metallicAndAoAttachmentInfo, velocityBufferAttachmentInfo};
     auto deferredGeomRenderingInfo = vk::RenderingInfo{}
         .setColorAttachments(colorAttachments)
         .setPDepthAttachment(&depthAttachmentInfo)
@@ -439,6 +448,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
         )
+        .insertImageMemoryBarrier(transientRenderingResources.emissiveBuffer(),
+            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
+            vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
+        )
         .insertImageMemoryBarrier(transientRenderingResources.normalBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
@@ -498,6 +511,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         u32 pointlightCount;
         u32 depthTextureIndex;
         u32 albedoAndRoughnessTextureIndex;
+        u32 emissiveTextureIndex;
         u32 normalTextureIndex;
         u32 metallicAoTextureIndex;
         u32 skyboxTextureId;
@@ -514,6 +528,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .pointlightCount = static_cast<u32>(renderingData.m_pointlights.m_storage.len()),
         .depthTextureIndex = transientRenderingResources.depthBufferIndex().imageIndex,
         .albedoAndRoughnessTextureIndex = transientRenderingResources.albedoAndRoughnessBufferIndex().imageIndex,
+        .emissiveTextureIndex = transientRenderingResources.emissiveBufferIndex().imageIndex,
         .normalTextureIndex = transientRenderingResources.normalBufferIndex().imageIndex,
         .metallicAoTextureIndex = transientRenderingResources.metallicAndAoBufferIndex().imageIndex,
         .skyboxTextureId = skyboxTextureId,

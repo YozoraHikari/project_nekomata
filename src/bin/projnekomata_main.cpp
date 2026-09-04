@@ -443,7 +443,8 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
                 auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
                 auto matprops = projnekomata::CoreMaterialProps()
                     .setRoughness(roughnessDist(gen))
-                    .setMetallic(roughnessDist(gen));
+                    .setMetallic(roughnessDist(gen))
+                    .setEmissive(Vector3f(1.0f, 0.0f, 0.0f));
 
                 auto texindex = texIndexDist(gen);
 

@@ -19,10 +19,12 @@ const static uint kFlagColorIsTex = 1 << 0;
 const static uint kFlagRoughnessIsTex = 1 << 1;
 const static uint kFlagMetallicIsTex = 1 << 2;
 const static uint kHasNormalMap = 1 << 3;
+const static uint kFlagEmissiveIsTex = 1 << 4;
 
 struct MaterialProps {
     uint flags;
     float3 colorOrTex;
+    float3 emissiveOrTex;
     float roughnessOrTex;
     float metallicOrTex;
     uint normalMapTex;
@@ -78,9 +80,10 @@ VSOut main(uint vertexID: SV_VulkanVertexID) {
 
 struct FSOut {
     float4 albedoAndRoughness : SV_Target0;
-    float4 normalAndGeometricNormal : SV_Target1;
-    float2 metallicAndAo : SV_Target2;
-    float2 velocity : SV_Target3;
+    float3 emissive : SV_Target1;
+    float4 normalAndGeometricNormal : SV_Target2;
+    float2 metallicAndAo : SV_Target3;
+    float2 velocity : SV_Target4;
 }
 
 float loadColorFromConstOrTex(float colorOrTex, float2 texcoord, bool isTex) {
@@ -121,6 +124,7 @@ SamplerState resolveSamplerHandle(uint handle) {
 FSOut main(VSOut input) {
     let props = *s_pushConstants.materialProps;
     float3 albedo   = loadColorFromConstOrTex(props.colorOrTex, input.uv, props.flags & kFlagColorIsTex);
+    float3 emissive = loadColorFromConstOrTex(props.emissiveOrTex, input.uv, props.flags & kFlagEmissiveIsTex);
     float roughness = loadColorFromConstOrTex(props.roughnessOrTex, input.uv, props.flags & kFlagRoughnessIsTex);
     float metallic  = loadColorFromConstOrTex(props.metallicOrTex, input.uv, props.flags & kFlagMetallicIsTex);
 
@@ -173,6 +177,7 @@ FSOut main(VSOut input) {
 */
     FSOut output;
     output.albedoAndRoughness = float4(albedo, roughness);
+    output.emissive = emissive;
     output.normalAndGeometricNormal = float4(pn, pgn);
     output.metallicAndAo = float2(metallic, ao);
     output.velocity = velocity;

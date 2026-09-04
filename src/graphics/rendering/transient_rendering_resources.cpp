@@ -15,6 +15,7 @@ TransientRenderingResources::TransientRenderingResources(vk::Extent2D renderImag
     auto& srt = TextureManager::get().shaderResourceTable();
     m_depthBufferIndex = srt.allocateSampledImageIndex();
     m_albedoAndRoughnessBufferIndex = srt.allocateSampledImageIndex();
+    m_emissiveBufferIndex = srt.allocateSampledImageIndex();
     m_normalBufferIndex = srt.allocateSampledImageIndex();
     m_metallicAndAoBufferIndex = srt.allocateSampledImageIndex();
     m_velocityBufferIndex = srt.allocateSampledImageIndex();
@@ -64,6 +65,12 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
     m_albedoAndRoughnessBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
         .name("G-Buffer Albedo and Roughness Buffer")
         .format(vk::Format::eR8G8B8A8Srgb)
+        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
+        .build();
+
+    m_emissiveBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("G-Buffer Emissive Buffer")
+        .format(vk::Format::eB10G11R11UfloatPack32)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
@@ -153,6 +160,7 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
 
     srt.bindSampledImage(m_depthBuffer, m_depthBufferIndex);
     srt.bindSampledImage(m_albedoAndRoughnessBuffer, m_albedoAndRoughnessBufferIndex);
+    srt.bindSampledImage(m_emissiveBuffer, m_emissiveBufferIndex);
     srt.bindSampledImage(m_normalBuffer, m_normalBufferIndex);
     srt.bindSampledImage(m_metallicAndAoBuffer, m_metallicAndAoBufferIndex);
     srt.bindSampledImage(m_velocityBuffer, m_velocityBufferIndex);

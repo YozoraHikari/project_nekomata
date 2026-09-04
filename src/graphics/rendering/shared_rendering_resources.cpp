@@ -111,7 +111,7 @@ SharedRenderingResources::SharedRenderingResources() {
         .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
         // .addDescriptorSetLayout(m_subpassInputAttachmentsDescriptorSetLayout)
         .addPushConstantRange(
-            0, 64,
+            0, 68,
             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
         )
         .build();

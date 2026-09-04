@@ -115,6 +115,13 @@ public:
                      .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
                 vk::Format::eR8G8B8A8Srgb
             )
+            // Emissive
+            .pushRenderingAttachment(
+                vk::PipelineColorBlendAttachmentState{}
+                     .setBlendEnable(false)
+                     .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
+                vk::Format::eB10G11R11UfloatPack32
+            )
             // Normals
             .pushRenderingAttachment(
                 vk::PipelineColorBlendAttachmentState{}
