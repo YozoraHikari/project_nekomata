@@ -13,15 +13,15 @@ BindlessDescriptorSetShaderResourceTable::BindlessDescriptorSetShaderResourceTab
 auto BindlessDescriptorSetShaderResourceTable::create(u32 maxSampledImageCount, u32 maxStorageImageCount, u32 maxSamplerCount) -> Unique<BindlessDescriptorSetShaderResourceTable> {
     auto descriptorSetLayout = vkrhi::VulkanDescriptorSetLayout::builder()
         .addBindingWithFlags(0, maxSampledImageCount, vk::DescriptorType::eSampledImage,
-            vk::ShaderStageFlagBits::eFragment,
+            vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
             vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending
         )
         .addBindingWithFlags(1, maxStorageImageCount, vk::DescriptorType::eStorageImage,
-            vk::ShaderStageFlagBits::eFragment,
+            vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
             vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending
         )
         .addBindingWithFlags(2, maxSamplerCount, vk::DescriptorType::eSampler,
-            vk::ShaderStageFlagBits::eFragment,
+            vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eCompute,
             vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending
         )
         .setFlags(vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool)

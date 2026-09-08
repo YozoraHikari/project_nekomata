@@ -17,7 +17,6 @@ FrameRenderingResources::FrameRenderingResources(u32 initialMaxObjects) {
     m_commandPool = vkrhi::VulkanCommandPool::createForGraphics(true);
     m_commandBuffer = m_commandPool.allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
 
-    auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     m_transformsBuffer = vkrhi::VulkanBuffer::builder()
         .name("Frame Transforms")
         .len(initialMaxObjects * sizeof(Transforms))
@@ -59,7 +58,6 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
     auto viewMatrix = cameraModelMatrix.inverseRigid();
     auto viewportSize = Vector2f(renderingData.m_currentWindowExtent.width, renderingData.m_currentWindowExtent.height);
 
-    auto queuesForBuffer = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     // ---- Shader Resource Table Handles ----------------------------------------------------------------------------------------------------------------------
 
     auto srtImageHandlesData = renderingData.m_textureToImageShaderIndexSnapshot.asSlice();
@@ -135,12 +133,11 @@ auto FrameRenderingResources::prepareBuffers(MRThreadsSharedDataLeaf& renderingD
             modelMatrix = renderingData.m_transforms.get(entSparseIndex).m_transform;
         }
 
-        auto normalMatrixPrec = Matrix3x3f({
-            modelMatrix[0, 0], modelMatrix[0, 1], modelMatrix[0, 2],
-            modelMatrix[1, 0], modelMatrix[1, 1], modelMatrix[1, 2],
-            modelMatrix[2, 0], modelMatrix[2, 1], modelMatrix[2, 2],
-        });
-        auto normalMatrix = normalMatrixPrec.inverse().unwrapOr(Matrix3x3f::identity()).transpose();
+        auto normalMatrix = modelMatrix
+            .submatrix<3, 3>(0, 0)
+            .inverse()
+            .map([](auto m) { return m.transpose(); })
+            .unwrapOr(Matrix3x3f::identity());
 
         auto transforms = Transforms {
             .model = modelMatrix,

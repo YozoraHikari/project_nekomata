@@ -13,6 +13,22 @@ struct FrameResult {
     bool stepPerFrameResources = false;
 };
 
+enum class FrameContextTimestampIndex {
+    BeforeGeometryPass,
+    AfterGeometryPass,
+    BeforeLightingPass,
+    AfterLightingPass,
+    BeforeBloomFilter,
+    AfterBloomFilter,
+    BeforeTonemapFuse,
+    AfterTonemapFuse,
+    BeforeSmaa,
+    AfterSmaa,
+    BeforeUI,
+    AfterUI,
+    CountDiscrim
+};
+
 class FrameContext {
 public:
     FrameContext(std::nullptr_t);

@@ -9,6 +9,7 @@ import :nonnull_ptr;
 import :primitives;
 import :slice;
 import :type_traits;
+import :assertions;
 
 // -------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -319,6 +320,15 @@ public:
 
     constexpr auto asSlice() const -> Slice<const T> { return Slice<const T>(m_data, m_len); }
     constexpr auto asSliceMut() -> Slice<T> { return Slice<T>(m_data, m_len); }
+
+    constexpr auto asSliceRange(usize offset, usize len) const -> Slice<const T> {
+        debug_assert(offset + len <= m_len, "slice range out of bounds");
+        return Slice<const T>(m_data + offset, len);
+    }
+    constexpr auto asSliceRangeMut(usize offset, usize len) -> Slice<T> {
+        debug_assert(offset + len <= m_len, "slice range out of bounds");
+        return Slice<T>(m_data + offset, len);
+    }
 
     // ---- Iterators ------------------------------------------------------------------------------------------------------------------------------------------
 

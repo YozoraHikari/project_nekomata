@@ -238,20 +238,20 @@ public:
                 auto execInfo = vk::PipelineExecutableInfoKHR{}.setPipeline(pipeline).setExecutableIndex(i);
                 auto execStats = Vec<vk::PipelineExecutableStatisticKHR>::fromStdVector(vkCheckResult(VulkanContext::get().vkDevice().getPipelineExecutableStatisticsKHR(execInfo)));
 
+                log::info("       # Name                     Value                Description");
                 for (auto [j, stat] : execStats.iter().enumerate()) {
-                    log::info("      #{}: {} ({})", j, std::string(stat.name), std::string(stat.description));
                     switch (stat.format) {
                         case vk::PipelineExecutableStatisticFormatKHR::eUint64:
-                            log::info("        Value: {}", stat.value.u64);
+                            log::info("      {:>2} {:<24} {:<20} {}", j, std::string(stat.name), stat.value.u64, std::string(stat.description));
                             break;
                         case vk::PipelineExecutableStatisticFormatKHR::eInt64:
-                            log::info("        Value: {}", stat.value.i64);
+                            log::info("      {:>2} {:<24} {:<20} {}", j, std::string(stat.name), stat.value.i64, std::string(stat.description));
                             break;
                         case vk::PipelineExecutableStatisticFormatKHR::eFloat64:
-                            log::info("        Value: {}", stat.value.f64);
+                            log::info("      {:>2} {:<24} {:<20} {}", j, std::string(stat.name), stat.value.f64, std::string(stat.description));
                             break;
                         case vk::PipelineExecutableStatisticFormatKHR::eBool32:
-                            log::info("        Value: {}", stat.value.b32);
+                            log::info("      {:>2} {:<24} {:<20} {}", j, std::string(stat.name), stat.value.b32, std::string(stat.description));
                             break;
                     }
                 }

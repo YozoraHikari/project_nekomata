@@ -6,6 +6,12 @@ project(project_nekomata VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;DebugSanitize" CACHE STRING "" FORCE)
 
+find_program(SCCACHE_PROGRAM sccache)
+
+if(SCCACHE_PROGRAM)
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
+        set(CMAKE_C_COMPILER_LAUNCHER ${SCCACHE_PROGRAM})
+endif()
 
 add_compile_options(
         -fno-exceptions

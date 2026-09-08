@@ -260,6 +260,13 @@ auto importSceneFromGltf(ecs::World& dstWorld, const fs::Path& path, const Mater
                     auto col = Vector3f(fcol.x(), fcol.y(), fcol.z());
                     material.setColor(col);
                 }
+                if (materialAsset.emissiveTexture.has_value()) {
+                    material.setEmissive(indexToTexture[materialAsset.emissiveTexture.value().textureIndex]);
+                } else {
+                    auto femissive = materialAsset.emissiveFactor * materialAsset.emissiveStrength;
+                    auto emissive = Vector3f(femissive.x(), femissive.y(), femissive.z());
+                    material.setEmissive(emissive);
+                }
                 if (materialAsset.pbrData.metallicRoughnessTexture.has_value()) {
                     log::warn("metallic and roughness textures not supported yet");
                 }

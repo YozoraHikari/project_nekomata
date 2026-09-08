@@ -7,6 +7,7 @@ import :graphics.fontsystem.font_face;
 import :graphics.fontsystem.dynamic_font_atlas;
 import :graphics.materialsystem.mat_manager;
 import :graphics.vulkan.vk_descriptor_pool;
+import :graphics.vulkan.vk_pipeline_compute;
 
 export namespace projnekomata::gfx {
 
@@ -61,6 +62,9 @@ public:
     vkrhi::VulkanPipelineLayout m_mainLightingPassLayout = nullptr;
     vkrhi::VulkanGraphicsPipeline m_mainLightingPassPipeline = nullptr;
 
+    vkrhi::VulkanPipelineLayout m_tonemappedFrameFuseLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_tonemappedFrameFusePipeline = nullptr;
+
     vkrhi::VulkanPipelineLayout m_smaaBlendWeightLayout = nullptr;
     vkrhi::VulkanGraphicsPipeline m_smaaBlendWeightPipeline = nullptr;
 
@@ -78,6 +82,12 @@ public:
 
     vkrhi::VulkanPipelineLayout m_quadOverdrawVisLayout = nullptr;
     vkrhi::VulkanGraphicsPipeline m_quadOverdrawVisPipeline = nullptr;
+
+    vkrhi::VulkanPipelineLayout m_bloomDownsamplePipelineLayout = nullptr;
+    vkrhi::VulkanComputePipeline m_bloomDownsamplePipeline = nullptr;
+
+    vkrhi::VulkanPipelineLayout m_bloomUpsamplePipelineLayout = nullptr;
+    vkrhi::VulkanComputePipeline m_bloomUpsamplePipeline = nullptr;
 
     math::Matrix4x4f m_lastProjview = math::Matrix4x4f::identity();
     math::Matrix4x4f m_lastProjviewNoTranslation = math::Matrix4x4f::identity();

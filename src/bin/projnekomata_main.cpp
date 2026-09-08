@@ -420,6 +420,7 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
 
     std::uniform_real_distribution<float> colorDist(0.02f, 1.0f);
     std::uniform_real_distribution<float> roughnessDist(0.0f, 1.0f);
+    std::uniform_real_distribution<float> emissiveDist(0.0f, 4.6f);
     std::uniform_int_distribution<usize> texIndexDist(0, 7);
     //for (usize i = 0; i < 1990; i++) {
     //    auto ent = world->createEntity();
@@ -435,36 +436,40 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
 
     usize inOneDim = 11;
     float spacing = 2.5f;
+    auto color = Vector3f(232.0f, 74.0f, 16.0f) / 255.0f;
     for (usize x = 0; x < inOneDim; x++) {
         for (usize y = 0; y < inOneDim; y++) {
-                auto scale = Vector3f(1.0f);
-                auto rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
-                auto translation = Vector3f(x * spacing, 0.0f, y * spacing);
-                auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
-                auto matprops = projnekomata::CoreMaterialProps()
-                    .setRoughness(roughnessDist(gen))
-                    .setMetallic(roughnessDist(gen))
-                    .setEmissive(Vector3f(1.0f, 0.0f, 0.0f));
+            float xp = static_cast<float>(x) / static_cast<float>(inOneDim - 1);
+            float yp = static_cast<float>(y) / static_cast<float>(inOneDim - 1);
+            auto scale = Vector3f(1.0f);
+            auto rotation = Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+            auto translation = Vector3f(x * spacing, 0.0f, y * spacing);
+            auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
+            auto matprops = projnekomata::CoreMaterialProps()
+                .setRoughness(xp)
+                .setMetallic(0.0f)
+                .setColor(color)
+                .setEmissive(color * yp * 4.0f);
+/*
+            auto texindex = texIndexDist(gen);
 
-                auto texindex = texIndexDist(gen);
+            switch (texindex) {
+                case 0: matprops.setColor(ts1); break;
+                case 1: matprops.setColor(ts2); break;
+                case 2: matprops.setColor(ts3); break;
+                case 3: matprops.setColor(ts4); break;
+                case 4: matprops.setColor(ts5); break;
+                case 5: matprops.setColor(ts6); break;
+                case 6: matprops.setColor(ts7); break;
+                case 7: matprops.setColor(Vector3f(colorDist(gen), colorDist(gen), colorDist(gen))); break;
+            }
+*/
+            auto matl = projnekomata::gfx::Material::create<projnekomata::CoreMaterialProps>(mainMaterialShader, std::move(matprops));
 
-                switch (texindex) {
-                    case 0: matprops.setColor(ts1); break;
-                    case 1: matprops.setColor(ts2); break;
-                    case 2: matprops.setColor(ts3); break;
-                    case 3: matprops.setColor(ts4); break;
-                    case 4: matprops.setColor(ts5); break;
-                    case 5: matprops.setColor(ts6); break;
-                    case 6: matprops.setColor(ts7); break;
-                    case 7: matprops.setColor(Vector3f(colorDist(gen), colorDist(gen), colorDist(gen))); break;
-                }
-
-                auto matl = projnekomata::gfx::Material::create<projnekomata::CoreMaterialProps>(mainMaterialShader, std::move(matprops));
-
-                auto ent = world->createEntity();
-                world->emplace<projnekomata::LocalTransformComponent>(ent, std::move(transform));
-                world->emplace<projnekomata::WorldTransformComponent>(ent);
-                world->emplace<projnekomata::RenderableComponent>(ent, mesh, matl);
+            auto ent = world->createEntity();
+            world->emplace<projnekomata::LocalTransformComponent>(ent, std::move(transform));
+            world->emplace<projnekomata::WorldTransformComponent>(ent);
+            world->emplace<projnekomata::RenderableComponent>(ent, mesh, matl);
 //                world->addScript<MovingScript>(ent, 0.0f, radiusDist(gen), thetaSpeedDist(gen), phiSpeedDist(gen), thetaDist(gen), phiDist(gen), rotationConstDist(gen), rotationConstDist(gen));
         }
     }

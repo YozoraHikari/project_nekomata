@@ -135,10 +135,35 @@ SharedRenderingResources::SharedRenderingResources() {
         vk::PipelineColorBlendAttachmentState{}
              .setBlendEnable(false)
              .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
-            vk::Format::eR8G8B8A8Srgb
+            vk::Format::eB10G11R11UfloatPack32
         ) // Color
         // .setRenderingAttachmentLocations(Slice<const u32>(deferredLightingStageLocations, 5))
         // .setRenderingInputAttachmentIndices(Slice<const u32>(deferredLightingStageInputLocs, 5), &deferredLightingStageDepthInputLoc)
+        .build();
+
+    m_tonemappedFrameFuseLayout = vkrhi::VulkanPipelineLayout::builder()
+        .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
+        .addPushConstantRange(
+            0, 24, vk::ShaderStageFlagBits::eFragment
+        )
+        .build();
+    auto tonemappedFrameFuseShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/tonemapped_frame_fuse.spv").unwrap();
+    m_tonemappedFrameFusePipeline = vkrhi::VulkanGraphicsPipeline::builder()
+        .setPipelineLayout(m_tonemappedFrameFuseLayout)
+        .addShader(tonemappedFrameFuseShader, vk::ShaderStageFlagBits::eVertex)
+        .addShader(tonemappedFrameFuseShader, vk::ShaderStageFlagBits::eFragment)
+        .setInputTopology(vk::PrimitiveTopology::eTriangleList)
+        .setRastPolygonMode(vk::PolygonMode::eFill)
+        .setRastCulling(vk::CullModeFlagBits::eNone, vk::FrontFace::eCounterClockwise)
+        .setRastLineWidth(1.0f)
+        .disableMultisampling()
+        .disableDepthTest()
+        .pushRenderingAttachment(
+            vk::PipelineColorBlendAttachmentState{}
+                .setBlendEnable(false)
+                .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
+            vk::Format::eR8G8B8A8Srgb
+        )
         .build();
 
     m_bitmapFontRendererLayout = vkrhi::VulkanPipelineLayout::builder()
@@ -282,6 +307,26 @@ SharedRenderingResources::SharedRenderingResources() {
              .setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA),
             vk::Format::eR8G8B8A8Srgb
         )
+        .build();
+
+    m_bloomDownsamplePipelineLayout = vkrhi::VulkanPipelineLayout::builder()
+        .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
+        .addPushConstantRange(0, 32, vk::ShaderStageFlagBits::eCompute)
+        .build();
+    auto bloomDownsampleShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/bloom_downsample.spv").unwrap();
+    m_bloomDownsamplePipeline = vkrhi::VulkanComputePipeline::builder()
+        .setPipelineLayout(m_bloomDownsamplePipelineLayout)
+        .setShader(bloomDownsampleShader)
+        .build();
+
+    m_bloomUpsamplePipelineLayout = vkrhi::VulkanPipelineLayout::builder()
+        .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
+        .addPushConstantRange(0, 24, vk::ShaderStageFlagBits::eCompute)
+        .build();
+    auto bloomUpsampleShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/bloom_upsample.spv").unwrap();
+    m_bloomUpsamplePipeline = vkrhi::VulkanComputePipeline::builder()
+        .setPipelineLayout(m_bloomUpsamplePipelineLayout)
+        .setShader(bloomUpsampleShader)
         .build();
 
     buildIblSecondaryCubemaps();

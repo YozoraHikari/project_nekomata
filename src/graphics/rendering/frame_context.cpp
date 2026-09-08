@@ -27,7 +27,7 @@ FrameContext::FrameContext(std::nullptr_t) {  }
 FrameContext::FrameContext() {
     m_frameRenderingResources = FrameRenderingResources(2048);
 
-    m_timestampsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::eTimestamp, 6, {});
+    m_timestampsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::eTimestamp, static_cast<u32>(FrameContextTimestampIndex::CountDiscrim), {});
 
     bool supportsPipelineStatisticsQuery = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
 
@@ -78,6 +78,9 @@ inline bool isObjectVisible(
 
     return true;
 }
+
+static auto& cvRdBloomRadius = CvarManager::get().registerCvar<float>("rd.bloomradius", 0.005f);
+static auto& cvRdBloomStrength = CvarManager::get().registerCvar<float>("rd.bloomstrength", 0.06f);
 
 auto FrameContext::execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources, vkrhi::VulkanSwapchain& swapchain,
     MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult {
@@ -264,6 +267,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     cb.clearColorImage(transientRenderingResources.overdrawCountersImage().vkImage(), vk::ImageLayout::eTransferDstOptimal, vk::ClearColorValue{}.setUint32({0, 0, 0, 0}), transientRenderingResources.overdrawCountersImage().subresourceRangeFull());
 
+    auto bloomReductionMipCount = transientRenderingResources.emissiveAndBloomBuffer().mipLevels() - 1;
     vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.overdrawCountersImage(),
             vk::ImageLayout::eTransferDstOptimal, vk::PipelineStageFlagBits2::eClear, vk::AccessFlagBits2::eTransferWrite,
@@ -273,9 +277,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
         )
-        .insertImageMemoryBarrier(transientRenderingResources.emissiveBuffer(),
-            vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
-            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
+        .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+            vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader, {},
+            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
+            { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
         )
         .insertImageMemoryBarrier(transientRenderingResources.normalBuffer(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
@@ -296,7 +301,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .flush(m_frameRenderingResources.commandBuffer());
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), 0);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeGeometryPass));
         if (supportsPipelineStatisticsQuery) cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0, {});
     }
 
@@ -306,10 +311,11 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
     auto emissiveAttachmentInfo = vk::RenderingAttachmentInfo{}
-        .setImageView(transientRenderingResources.emissiveBuffer().vkImageViewWholeSize())
+        .setImageView(transientRenderingResources.emissiveAndBloomBufferMipView(0).vkImageView())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStoreOp(vk::AttachmentStoreOp::eStore);
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore)
+        .setClearValue(vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 0.0f });
     auto normalAttachmentInfo = vk::RenderingAttachmentInfo{}
         .setImageView(transientRenderingResources.normalBuffer().vkImageViewWholeSize())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -437,7 +443,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.endRendering();
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), 1);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterGeometryPass));
         if (supportsPipelineStatisticsQuery) cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0);
     }
 
@@ -448,9 +454,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
         )
-        .insertImageMemoryBarrier(transientRenderingResources.emissiveBuffer(),
+        .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
-            vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
+            vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader | vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderSampledRead,
+            { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
         )
         .insertImageMemoryBarrier(transientRenderingResources.normalBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -468,14 +475,24 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests, vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
         )
-        .insertImageMemoryBarrier(transientRenderingResources.colorBuffer(),
+        .insertImageMemoryBarrier(transientRenderingResources.hdrColorBuffer(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
         )
         .flush(m_frameRenderingResources.commandBuffer());
 
+    if (bloomReductionMipCount > 0) {
+        vkrhi::VulkanPipelineBarriers::builder()
+            .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+                vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
+                vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite,
+                { vk::ImageAspectFlagBits::eColor, 1, bloomReductionMipCount, 0, 1 }
+            )
+            .flush(m_frameRenderingResources.commandBuffer());
+    }
+
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), 2);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeLightingPass));
     }
 
     u32 skyboxTextureId = renderingData.m_textureToImageShaderIndexSnapshot[sharedRenderingResources.m_skyCubemap.index];
@@ -488,7 +505,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     );
 
     auto drawImageAttachmentInfo = vk::RenderingAttachmentInfo{}
-        .setImageView(transientRenderingResources.colorBuffer().vkImageViewWholeSize())
+        .setImageView(transientRenderingResources.hdrColorBuffer().vkImageViewWholeSize())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
@@ -528,7 +545,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .pointlightCount = static_cast<u32>(renderingData.m_pointlights.m_storage.len()),
         .depthTextureIndex = transientRenderingResources.depthBufferIndex().imageIndex,
         .albedoAndRoughnessTextureIndex = transientRenderingResources.albedoAndRoughnessBufferIndex().imageIndex,
-        .emissiveTextureIndex = transientRenderingResources.emissiveBufferIndex().imageIndex,
+        .emissiveTextureIndex = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(0).imageIndex,
         .normalTextureIndex = transientRenderingResources.normalBufferIndex().imageIndex,
         .metallicAoTextureIndex = transientRenderingResources.metallicAndAoBufferIndex().imageIndex,
         .skyboxTextureId = skyboxTextureId,
@@ -542,14 +559,191 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.pushConstants<LightingStagePushConstantData>(sharedRenderingResources.m_mainLightingPassLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, pushconstData);
     cb.draw(3, 1, 0, 0);
 
+    cb.endRendering();
+
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), 3);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterLightingPass));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeBloomFilter));
     }
+
+    for (u32 i = 0; i < bloomReductionMipCount; i++) {
+        auto srcMip = i;
+        auto dstMip = i + 1;
+        auto isFirstStep = i == 0;
+
+        auto srcMipSrt = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(srcMip);
+        auto dstMipSrt = transientRenderingResources.emissiveAndBloomBufferStorageImageIndexForMip(dstMip);
+
+        auto mipSize = math::Vector2i(renderingArea.x(), renderingArea.y()) / std::pow(2, i + 1);
+        auto mipSizef = math::Vector2f(mipSize.x(), mipSize.y());
+
+        struct BloomDownsamplePushConstants {
+            math::Vector2f resolution;
+            math::Vector2f texelSize;
+            u32 srcMipSampledImageSrtID;
+            u32 linearSamplerSrtID;
+            u32 dstMipStorageImageSrtID;
+            u32 isFirstMip;
+        };
+
+        auto pcData = BloomDownsamplePushConstants {
+            .resolution = mipSizef,
+            .texelSize = math::Vector2f::one().componentWiseDivide(mipSizef),
+            .srcMipSampledImageSrtID = srcMipSrt.imageIndex,
+            .linearSamplerSrtID = linearSamplerId,
+            .dstMipStorageImageSrtID = dstMipSrt.imageIndex,
+            .isFirstMip = static_cast<u32>(isFirstStep)
+        };
+
+        auto groupSize = math::Vector2i(16, 16);
+        auto groupCount = (mipSize + groupSize - math::Vector2i::one()).componentWiseDivide(groupSize);
+
+        cb.bindPipeline(vk::PipelineBindPoint::eCompute, sharedRenderingResources.m_bloomDownsamplePipeline.vkPipeline());
+        TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_bloomDownsamplePipelineLayout, vk::PipelineBindPoint::eCompute);
+        cb.pushConstants<BloomDownsamplePushConstants>(sharedRenderingResources.m_bloomDownsamplePipelineLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, pcData);
+        cb.dispatch(groupCount.x(), groupCount.y(), 1);
+
+        vkrhi::VulkanPipelineBarriers::builder()
+            .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+                vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite,
+                vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderSampledRead,
+                { vk::ImageAspectFlagBits::eColor, dstMip, 1, 0, 1 }
+            )
+            .flush(m_frameRenderingResources.commandBuffer());
+    }
+
+    for (u32 i = 0; i < bloomReductionMipCount; i++) {
+        bool isFirstPass = i == 0;
+
+        auto srcMip = transientRenderingResources.emissiveAndBloomBuffer().mipLevels() - i - 1;
+        auto dstMip = srcMip - 1;
+
+        auto srcMipSrt = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(srcMip);
+        auto dstMipSrt = transientRenderingResources.emissiveAndBloomBufferStorageImageIndexForMip(dstMip);
+
+        auto mipSize = math::Vector2i(renderingArea.x(), renderingArea.y()) / std::pow(2, dstMip);
+        auto mipSizef = math::Vector2f(mipSize.x(), mipSize.y());
+        auto groupSize = math::Vector2i(16, 16);
+        auto groupCount = (mipSize + groupSize - math::Vector2i::one()).componentWiseDivide(groupSize);
+
+        // Last mip is already in ShaderReadOnlyOptimal layout from the downsample pass, but higher mips are put into General layout as this loop iterates.
+        if (!isFirstPass) {
+            vkrhi::VulkanPipelineBarriers::builder()
+                .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+                    vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite,
+                    vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderSampledRead,
+                    { vk::ImageAspectFlagBits::eColor, srcMip, 1, 0, 1 }
+                )
+                .flush(m_frameRenderingResources.commandBuffer());
+        }
+
+        // Make sure to block till the lighting pass has finished reading mip 0.
+        auto srcStageMask = dstMip == 0 ? vk::PipelineStageFlagBits2::eComputeShader | vk::PipelineStageFlagBits2::eFragmentShader : vk::PipelineStageFlagBits2::eComputeShader;
+        vkrhi::VulkanPipelineBarriers::builder()
+            .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+                vk::ImageLayout::eShaderReadOnlyOptimal, srcStageMask, {},
+                vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead | vk::AccessFlagBits2::eShaderStorageWrite,
+                { vk::ImageAspectFlagBits::eColor, dstMip, 1, 0, 1}
+            )
+            .flush(m_frameRenderingResources.commandBuffer());
+
+        struct BloomUpsamplePushConstants {
+            math::Vector2f resolution;
+            u32 smallerMipSampledImageSrtID;
+            u32 linearSamplerSrtID;
+            u32 dstMipStorageImageSrtID;
+            float filterRadius;
+        };
+
+        auto pcData = BloomUpsamplePushConstants {
+            .resolution = mipSizef,
+            .smallerMipSampledImageSrtID = srcMipSrt.imageIndex,
+            .linearSamplerSrtID = linearSamplerId,
+            .dstMipStorageImageSrtID = dstMipSrt.imageIndex,
+            .filterRadius = cvRdBloomRadius.get()
+        };
+
+        cb.bindPipeline(vk::PipelineBindPoint::eCompute, sharedRenderingResources.m_bloomUpsamplePipeline.vkPipeline());
+        TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_bloomUpsamplePipelineLayout, vk::PipelineBindPoint::eCompute);
+        cb.pushConstants<BloomUpsamplePushConstants>(sharedRenderingResources.m_bloomUpsamplePipelineLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, pcData);
+        cb.dispatch(groupCount.x(), groupCount.y(), 1);
+
+        if (dstMip == 0) {
+            vkrhi::VulkanPipelineBarriers::builder()
+                .insertImageMemoryBarrierSubresource(transientRenderingResources.emissiveAndBloomBuffer(),
+                    vk::ImageLayout::eGeneral, vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite,
+                    vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead,
+                    { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+                )
+                .flush(m_frameRenderingResources.commandBuffer());
+        }
+    }
+
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterBloomFilter));
+    }
+
+    // ---- Tonemapped Frame Fuse ------------------------------------------------------------------------------------------------------------------------------
+
+    vkrhi::VulkanPipelineBarriers::builder()
+        .insertImageMemoryBarrier(transientRenderingResources.hdrColorBuffer(),
+            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
+            vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
+        )
+        .insertImageMemoryBarrier(transientRenderingResources.tonemappedColorBuffer(),
+            vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
+            vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite
+        )
+        .flush(m_frameRenderingResources.commandBuffer());
+
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeTonemapFuse));
+    }
+
+    auto dstTonemappedFrameAttachmentInfo = vk::RenderingAttachmentInfo{}
+        .setImageView(transientRenderingResources.tonemappedColorBuffer().vkImageViewWholeSize())
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+    auto tonemappedFrameFuseRenderingInfo = vk::RenderingInfo{}
+        .setColorAttachments(dstTonemappedFrameAttachmentInfo)
+        .setLayerCount(1)
+        .setRenderArea(vk::Rect2D{}.setExtent(vkRenderingArea));
+
+    cb.beginRendering(tonemappedFrameFuseRenderingInfo);
+    cb.setViewport(0, viewport);
+    cb.setScissor(0, scissor);
+
+    cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_tonemappedFrameFusePipeline.vkPipeline());
+    TextureManager::get().shaderResourceTable().bindToCommandBuffer(m_frameRenderingResources.commandBuffer(), sharedRenderingResources.m_tonemappedFrameFuseLayout, vk::PipelineBindPoint::eGraphics);
+
+    struct TonemappedFrameFusePushConstants {
+        vk::DeviceAddress globaldataAddr;
+        u32 nearestSamplerSrtID;
+        u32 hdrColorBufferSrtID;
+        u32 filteredBloomImageSrtID;
+        float bloomStrength;
+    } __attribute((packed));
+
+    auto tonemappedFrameFusePcData = TonemappedFrameFusePushConstants {
+        .globaldataAddr = globaldataAddr,
+        .nearestSamplerSrtID = nearestSamplerId,
+        .hdrColorBufferSrtID = transientRenderingResources.hdrColorBufferIndex().imageIndex,
+        .filteredBloomImageSrtID = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(0).imageIndex,
+        .bloomStrength = cvRdBloomStrength.get()
+    };
+
+    cb.pushConstants<TonemappedFrameFusePushConstants>(sharedRenderingResources.m_tonemappedFrameFuseLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eFragment, 0, tonemappedFrameFusePcData);
+    cb.draw(3, 1, 0, 0);
 
     cb.endRendering();
 
-    // ---- SMAA -----------------------------------------------------------------------------------------------------------------------------------------------
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterTonemapFuse));
+    }
 
+    // ---- SMAA -----------------------------------------------------------------------------------------------------------------------------------------------
 
     auto smaaRtMetrics = Vector4f(1.0f / renderingArea.x(), 1.0f / renderingArea.y(), renderingArea.x(), renderingArea.y());
 
@@ -575,7 +769,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     // -------- [Stage 1] Edge detection
 
     vkrhi::VulkanPipelineBarriers::builder()
-        .insertImageMemoryBarrier(transientRenderingResources.colorBuffer(),
+        .insertImageMemoryBarrier(transientRenderingResources.tonemappedColorBuffer(),
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite,
             vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
         )
@@ -586,7 +780,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         .flush(m_frameRenderingResources.commandBuffer());
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), 4);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeSmaa));
     }
 
     auto edgesImageAttachmentInfo = vk::RenderingAttachmentInfo{}
@@ -617,7 +811,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     auto smaaEdgeDetectionPushconstData = SmaaEdgeDetectionPushConstantData {
         .rtMetrics = smaaRtMetrics,
-        .colorBufferSrtID = transientRenderingResources.colorBufferUnormViewIndex().imageIndex,
+        .colorBufferSrtID = transientRenderingResources.tonemappedColorBufferUnormViewIndex().imageIndex,
         .linearSamplerSrtID = smaaLinearSamplerSrtID,
         .nearestSamplerSrtID = smaaNearestSamplerSrtID
     };
@@ -727,7 +921,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     auto smaaNeighborhoodBlendPushconstData = SmaaNeighborhoodBlendPushConstantData {
         .rtMetrics = smaaRtMetrics,
-        .colorBufferSrtID = transientRenderingResources.colorBufferIndex().imageIndex,
+        .colorBufferSrtID = transientRenderingResources.tonemappedColorBufferIndex().imageIndex,
         .weightsImageSrtID = transientRenderingResources.smaaWeightsImageIndex().imageIndex,
         .velocityBufferSrtID = transientRenderingResources.velocityBufferIndex().imageIndex,
         .linearSamplerSrtID = smaaLinearSamplerSrtID,
@@ -811,7 +1005,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     cb.endRendering();
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), 5);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterSmaa));
     }
     // ---- Temporary : Quad Overdraw Vis ----------------------------------------------------------------------------------------------------------------------
 /*
@@ -851,6 +1045,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
             vk::ImageLayout::eColorAttachmentOptimal, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite
         )
         .flush(m_frameRenderingResources.commandBuffer());
+
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeUI));
+    }
 
     auto finalDrawBufferAttachmentInfo = vk::RenderingAttachmentInfo{}
         .setImageView(transientRenderingResources.finalImage().vkImageViewWholeSize())
@@ -962,6 +1160,10 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     }
 
     cb.endRendering();
+
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterUI));
+    }
 
     vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.finalImage(),

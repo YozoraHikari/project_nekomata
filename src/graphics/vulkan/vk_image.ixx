@@ -51,6 +51,8 @@ public:
     [[nodiscard]] auto vkImageViewWholeSize() const -> const vk::raii::ImageView& { return m_vkImageViewWholeSize.vkHandle(); }
     [[nodiscard]] auto extent() const -> vk::Extent3D { return m_vkImageExtents; }
     [[nodiscard]] auto format() const -> vk::Format { return m_vkImageFormat; }
+    [[nodiscard]] auto mipLevels() const -> u32 { return m_mipLevelCount; }
+    [[nodiscard]] auto arrayLayers() const -> u32 { return m_arrayLayerCount; }
     [[nodiscard]] auto subresourceRangeFull() const -> vk::ImageSubresourceRange { return m_vkImageSubresourceRangeFull; }
 
     auto createImageView(u32 baseMipLevel, u32 mipLevelCount, u32 baseArrayLayer, u32 arrayLayerCount, bool keepCube) -> VulkanImageView;

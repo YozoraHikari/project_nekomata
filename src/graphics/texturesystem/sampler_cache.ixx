@@ -31,43 +31,43 @@ struct SamplerParams {
         return SamplerParams();
     }
 
-    [[nodiscard]] constexpr auto setMinFilter(vk::Filter filter) noexcept -> SamplerParams& {
+    constexpr auto setMinFilter(vk::Filter filter) noexcept -> SamplerParams& {
         m_minFilter = filter;
         return *this;
     }
-    [[nodiscard]] constexpr auto setMagFilter(vk::Filter filter) noexcept -> SamplerParams& {
+    constexpr auto setMagFilter(vk::Filter filter) noexcept -> SamplerParams& {
         m_magFilter = filter;
         return *this;
     }
-    [[nodiscard]] constexpr auto setMipmapMode(vk::SamplerMipmapMode mipmapMode) noexcept -> SamplerParams& {
+    constexpr auto setMipmapMode(vk::SamplerMipmapMode mipmapMode) noexcept -> SamplerParams& {
         m_mipmapMode = mipmapMode;
         return *this;
     }
-    [[nodiscard]] constexpr auto setAddressModeU(vk::SamplerAddressMode addressModeU) noexcept -> SamplerParams& {
+    constexpr auto setAddressModeU(vk::SamplerAddressMode addressModeU) noexcept -> SamplerParams& {
         m_addressModeU = addressModeU;
         return *this;
     }
-    [[nodiscard]] constexpr auto setAddressModeV(vk::SamplerAddressMode addressModeV) noexcept -> SamplerParams& {
+    constexpr auto setAddressModeV(vk::SamplerAddressMode addressModeV) noexcept -> SamplerParams& {
         m_addressModeV = addressModeV;
         return *this;
     }
-    [[nodiscard]] constexpr auto setAddressModeW(vk::SamplerAddressMode addressModeW) noexcept -> SamplerParams& {
+    constexpr auto setAddressModeW(vk::SamplerAddressMode addressModeW) noexcept -> SamplerParams& {
         m_addressModeW = addressModeW;
         return *this;
     }
-    [[nodiscard]] constexpr auto setAnisotropy(f32 anisotropy) noexcept -> SamplerParams& {
+    constexpr auto setAnisotropy(f32 anisotropy) noexcept -> SamplerParams& {
         m_anisotropy = anisotropy;
         return *this;
     }
-    [[nodiscard]] constexpr auto setMaxLod(f32 maxLod) noexcept -> SamplerParams& {
+    constexpr auto setMaxLod(f32 maxLod) noexcept -> SamplerParams& {
         m_maxLod = maxLod;
         return *this;
     }
-    [[nodiscard]] constexpr auto setMinLod(f32 minLod) noexcept -> SamplerParams& {
+    constexpr auto setMinLod(f32 minLod) noexcept -> SamplerParams& {
         m_minLod = minLod;
         return *this;
     }
-    [[nodiscard]] constexpr auto setMipLodBias(f32 mipLodBias) noexcept -> SamplerParams& {
+    constexpr auto setMipLodBias(f32 mipLodBias) noexcept -> SamplerParams& {
         m_mipLodBias = mipLodBias;
         return *this;
     }

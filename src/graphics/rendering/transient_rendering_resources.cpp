@@ -15,14 +15,14 @@ TransientRenderingResources::TransientRenderingResources(vk::Extent2D renderImag
     auto& srt = TextureManager::get().shaderResourceTable();
     m_depthBufferIndex = srt.allocateSampledImageIndex();
     m_albedoAndRoughnessBufferIndex = srt.allocateSampledImageIndex();
-    m_emissiveBufferIndex = srt.allocateSampledImageIndex();
     m_normalBufferIndex = srt.allocateSampledImageIndex();
     m_metallicAndAoBufferIndex = srt.allocateSampledImageIndex();
     m_velocityBufferIndex = srt.allocateSampledImageIndex();
+    m_hdrColorBufferIndex = srt.allocateSampledImageIndex();
     m_smaaEdgesImageIndex = srt.allocateSampledImageIndex();
     m_smaaWeightsImageIndex = srt.allocateSampledImageIndex();
-    m_colorBufferIndex = srt.allocateSampledImageIndex();
-    m_colorBufferUnormViewIndex = srt.allocateSampledImageIndex();
+    m_tonemappedColorBufferIndex = srt.allocateSampledImageIndex();
+    m_tonemappedColorBufferUnormViewIndex = srt.allocateSampledImageIndex();
 
     m_smaaColorResolvedBuffer0UnormViewIndex = srt.allocateSampledImageIndex();
     m_smaaColorResolvedBuffer1UnormViewIndex = srt.allocateSampledImageIndex();
@@ -50,8 +50,16 @@ auto renderTargetImageBuilderPrefab(vk::Extent2D renderImageExtent) -> vkrhi::Vu
         .initialLayout(vk::ImageLayout::eUndefined);
 }
 
+auto selectBloomStagingMipCount(vk::Extent2D renderImageExtent) -> u32 {
+    auto desiredSmallestMipSize = 32.0_f64;
+
+    auto imageSize = static_cast<double>(std::max(renderImageExtent.width, renderImageExtent.height));
+    auto mipCount = 1_u32 + static_cast<u32>(std::floor(std::log2(imageSize / desiredSmallestMipSize)));
+    log::info("mip count: {}", mipCount);
+    return mipCount;
+}
+
 auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderImageExtent) -> void {
-    auto affectedQueues = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_queueFamilies[vkrhi::QueueFamily::Graphics];
     auto& srt = TextureManager::get().shaderResourceTable();
 
     auto colorMutableFormats = StaticSlice<const vk::Format>::inst<vk::Format::eR8G8B8A8Srgb, vk::Format::eR8G8B8A8Unorm>();
@@ -68,11 +76,29 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
-    m_emissiveBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
-        .name("G-Buffer Emissive Buffer")
+    m_emissiveAndBloomBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("G-Buffer Emissive and Bloom Build Buffer")
+        .mipLevels(selectBloomStagingMipCount(renderImageExtent))
         .format(vk::Format::eB10G11R11UfloatPack32)
-        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
+        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage)
         .build();
+
+    if (m_emissiveAndBloomBuffer.mipLevels() > m_emissiveAndBloomBufferSampledImageMipIndices.len()) {
+        auto lenBefore = m_emissiveAndBloomBufferSampledImageMipIndices.len();
+        m_emissiveAndBloomBufferSampledImageMipIndices.resize(m_emissiveAndBloomBuffer.mipLevels(), SRTResourceIndex{});
+        m_emissiveAndBloomBufferStorageImageMipIndices.resize(m_emissiveAndBloomBuffer.mipLevels(), SRTResourceIndex{});
+        auto newIndexCount = m_emissiveAndBloomBufferSampledImageMipIndices.len() - lenBefore;
+        srt.allocateSampledImageIndices(newIndexCount, m_emissiveAndBloomBufferSampledImageMipIndices.asSliceRangeMut(lenBefore, newIndexCount));
+        srt.allocateStorageImageIndices(newIndexCount, m_emissiveAndBloomBufferStorageImageMipIndices.asSliceRangeMut(lenBefore, newIndexCount));
+    }
+
+    m_emissiveAndBloomBufferMipViews.clear();
+    for (u32 i = 0; i < m_emissiveAndBloomBuffer.mipLevels(); i++) {
+        auto view = m_emissiveAndBloomBuffer.createImageView(i, 1, 0, 1, false);
+        srt.bindSampledImageView(view, m_emissiveAndBloomBufferSampledImageMipIndices[i]);
+        srt.bindStorageImageView(view, m_emissiveAndBloomBufferStorageImageMipIndices[i]);
+        m_emissiveAndBloomBufferMipViews.emplace(std::move(view));
+    }
 
     m_normalBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
         .name("G-Buffer Normal Buffer")
@@ -92,14 +118,20 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .build();
 
-    m_colorBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
-        .name("Color Buffer")
+    m_hdrColorBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("HDR Color Buffer")
+        .format(vk::Format::eB10G11R11UfloatPack32)
+        .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
+        .build();
+
+    m_tonemappedColorBuffer = renderTargetImageBuilderPrefab(renderImageExtent)
+        .name("Tonemapped Color Buffer")
         .format(vk::Format::eR8G8B8A8Srgb)
         .usage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled)
         .mutableFormat(colorMutableFormats)
         .build();
 
-    m_colorBufferUnormView = m_colorBuffer.createImageViewWithFormat(vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1, false);
+    m_tonemappedColorBufferUnormView = m_tonemappedColorBuffer.createImageViewWithFormat(vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1, false);
 
     m_smaaColorResolvedBuffer0 = renderTargetImageBuilderPrefab(renderImageExtent)
         .name("SMAA Color Resolved Buffer 0")
@@ -160,14 +192,14 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
 
     srt.bindSampledImage(m_depthBuffer, m_depthBufferIndex);
     srt.bindSampledImage(m_albedoAndRoughnessBuffer, m_albedoAndRoughnessBufferIndex);
-    srt.bindSampledImage(m_emissiveBuffer, m_emissiveBufferIndex);
     srt.bindSampledImage(m_normalBuffer, m_normalBufferIndex);
     srt.bindSampledImage(m_metallicAndAoBuffer, m_metallicAndAoBufferIndex);
     srt.bindSampledImage(m_velocityBuffer, m_velocityBufferIndex);
+    srt.bindSampledImage(m_hdrColorBuffer, m_hdrColorBufferIndex);
     srt.bindSampledImage(m_smaaEdgesImage, m_smaaEdgesImageIndex);
     srt.bindSampledImage(m_smaaWeightsImage, m_smaaWeightsImageIndex);
-    srt.bindSampledImage(m_colorBuffer, m_colorBufferIndex);
-    srt.bindSampledImageView(m_colorBufferUnormView, m_colorBufferUnormViewIndex);
+    srt.bindSampledImage(m_tonemappedColorBuffer, m_tonemappedColorBufferIndex);
+    srt.bindSampledImageView(m_tonemappedColorBufferUnormView, m_tonemappedColorBufferUnormViewIndex);
     srt.bindSampledImageView(m_smaaColorResolvedBuffer0UnormView, m_smaaColorResolvedBuffer0UnormViewIndex);
     srt.bindSampledImageView(m_smaaColorResolvedBuffer1UnormView, m_smaaColorResolvedBuffer1UnormViewIndex);
     srt.bindSampledImage(m_postSmaaImage, m_postSmaaImageIndex);

@@ -186,14 +186,17 @@ auto MainThread::loop(float dt) -> void {
         if (m_mrSharedData->m_queryPoolStatsAreValid) {
             auto& queryTimestamps = m_mrSharedData->m_queryTimestamps;
             auto& pipelineStats = m_mrSharedData->m_deferredGeometryPipelineStats;
-            auto geomPassTime = (queryTimestamps.geomPassBottomOfPipe - queryTimestamps.geomPassTopOfPipe) * deviceTimestampPeriod / 1000000.0_f64;
-            auto lightingPassTime = (queryTimestamps.lightingPassAfterDoneBottomOfPipe - queryTimestamps.lightingPassTopOfPipe) * deviceTimestampPeriod / 1000000.0_f64;
-            auto smaaTime = (queryTimestamps.smaaBottomOfPipe - queryTimestamps.smaaTopOfPipe) * deviceTimestampPeriod / 1000000.0_f64;
+            auto geomPassTime = (queryTimestamps.afterGeometryPass - queryTimestamps.beforeGeometryPass) * deviceTimestampPeriod / 1000000.0_f64;
+            auto lightingPassTime = (queryTimestamps.afterLightingPass - queryTimestamps.beforeLightingPass) * deviceTimestampPeriod / 1000000.0_f64;
+            auto bloomFilterTime = (queryTimestamps.afterBloomFilter - queryTimestamps.beforeBloomFilter) * deviceTimestampPeriod / 1000000.0_f64;
+            auto tonemapFuseTime = (queryTimestamps.afterTonemapFuse - queryTimestamps.beforeTonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
+            auto smaaTime = (queryTimestamps.afterSmaa - queryTimestamps.beforeSmaa) * deviceTimestampPeriod / 1000000.0_f64;
+            auto uiTime = (queryTimestamps.afterUI - queryTimestamps.beforeUI) * deviceTimestampPeriod / 1000000.0_f64;
 
             if (supportsPipelineStatisticsQuery) {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms #VS: {} #TCS: {} #TES: {} #FS: {}\n LightingPass: {:.3f} ms\n SMAA: {:.3f} ms", geomPassTime, pipelineStats[0], pipelineStats[2], pipelineStats[3], pipelineStats[1], lightingPassTime, smaaTime);
+                queryStats = fmt::format("\n GeomPass: {:.3f} ms #VS: {} #TCS: {} #TES: {} #FS: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, pipelineStats[0], pipelineStats[2], pipelineStats[3], pipelineStats[1], lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
             } else {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms\n LightingPass: {:.3f} ms\n SMAA: {:.3f} ms", geomPassTime, lightingPassTime, smaaTime);
+                queryStats = fmt::format("\n GeomPass: {:.3f} ms\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
             }
         }
 

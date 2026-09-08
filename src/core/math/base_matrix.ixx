@@ -61,13 +61,13 @@ public:
     constexpr auto operator[](usize r, usize c)       ->       T& { return mself(r, c); }
 
 
-    constexpr auto operator+=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() + other.loadAccelForm()); return *this; }
-    constexpr auto operator-=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() - other.loadAccelForm()); return *this; }
-    constexpr auto operator*=(const Matrix& other) -> Matrix& { storeAccelForm(loadAccelForm() * other.loadAccelForm()); return *this; }
-    constexpr auto operator+=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() + scalar); return *this; }
-    constexpr auto operator-=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() - scalar); return *this; }
-    constexpr auto operator*=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() * scalar); return *this; }
-    constexpr auto operator/=(T scalar) -> Matrix& { storeAccelForm(loadAccelForm() / scalar); return *this; }
+    constexpr auto operator+=(const Matrix& other) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() + other.loadLlvmMatrix()); return *this; }
+    constexpr auto operator-=(const Matrix& other) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() - other.loadLlvmMatrix()); return *this; }
+    constexpr auto operator*=(const Matrix& other) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() * other.loadLlvmMatrix()); return *this; }
+    constexpr auto operator+=(T scalar) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() + scalar); return *this; }
+    constexpr auto operator-=(T scalar) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() - scalar); return *this; }
+    constexpr auto operator*=(T scalar) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() * scalar); return *this; }
+    constexpr auto operator/=(T scalar) -> Matrix& { storeLlvmMatrix(loadLlvmMatrix() / scalar); return *this; }
 
     constexpr friend auto operator+(Matrix lhs, const Matrix& rhs) -> Matrix { return lhs += rhs; }
     constexpr friend auto operator+(Matrix lhs, const T& rhs) -> Matrix { return lhs += rhs; }
@@ -82,7 +82,7 @@ public:
 
     template <usize Nc>
     constexpr friend auto operator*(Matrix lhs, const Matrix<T, C, Nc>& rhs) -> Matrix<T, R, Nc> {
-        return Matrix<T, R, Nc>(lhs.loadAccelForm() * rhs.loadAccelForm());
+        return Matrix<T, R, Nc>(lhs.loadLlvmMatrix() * rhs.loadLlvmMatrix());
     }
 
     constexpr auto operator==(const Matrix& other) const -> bool {
@@ -109,7 +109,7 @@ public:
     }
 
     constexpr auto transpose() const -> Matrix {
-        return Matrix(__builtin_matrix_transpose(loadAccelForm()));
+        return Matrix(__builtin_matrix_transpose(loadLlvmMatrix()));
     }
 
     constexpr auto x() const -> const T& { return mself(0, 0); }
@@ -207,20 +207,20 @@ public:
     }
 
 private:
-    using AccelMatrixType __attribute__((matrix_type(R, C))) = T;
+    using LlvmMatrixType __attribute__((matrix_type(R, C))) = T;
     using Storage = T[R * C];
     Storage m_data;
 
-    constexpr auto loadAccelForm() const -> AccelMatrixType {
+    constexpr auto loadLlvmMatrix() const -> LlvmMatrixType {
         return __builtin_matrix_column_major_load(m_data, R, C, R);
     }
-    constexpr auto storeAccelForm(AccelMatrixType data) -> void {
+    constexpr auto storeLlvmMatrix(LlvmMatrixType data) -> void {
         __builtin_matrix_column_major_store(data, m_data, R);
     }
 
     Matrix(Storage data) : m_data(data) {}
-    Matrix(AccelMatrixType data) {
-        storeAccelForm(data);
+    Matrix(LlvmMatrixType data) {
+        storeLlvmMatrix(data);
     }
 
     template <typename, usize, usize> friend class Matrix;

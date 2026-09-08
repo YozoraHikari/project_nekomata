@@ -8,8 +8,8 @@ VulkanImage::VulkanImage(std::nullptr_t) {}
 VulkanImage::VulkanImage(vk::raii::Image&& image, vma::raii::Allocation&& allocation, vk::raii::ImageView imageViewWholeSize, vk::ImageSubresourceRange imageSubresourceRangeFull, vk::Extent3D extents, u32 arrayLayerCount, u32 mipLevelCount, bool isCubemap, vk::Format format, vk::ImageType type)
     : m_vkImage(std::move(image)), m_vkImageViewWholeSize(std::move(imageViewWholeSize)), m_vmaAllocation(std::move(allocation)),
         m_vkImageSubresourceRangeFull(imageSubresourceRangeFull),
-        m_vkImageExtents(extents), m_arrayLayerCount(arrayLayerCount), m_mipLevelCount(mipLevelCount), m_isCubemap(isCubemap),
-        m_vkImageFormat(format), m_vkImageType(type) {}
+        m_vkImageExtents(extents), m_arrayLayerCount(arrayLayerCount), m_mipLevelCount(mipLevelCount), m_vkImageFormat(format),
+        m_vkImageType(type), m_isCubemap(isCubemap) {}
 
 // clang-format off
 std::unordered_map<vk::Format, ImageFormatMd> VulkanImage::s_formatMetadata = {

@@ -91,7 +91,8 @@ auto RenderThread::loop() -> void {
         m_mrSharedData->m_queryPoolStatsAreValid = hasStats;
 
         if (hasStats) {
-            gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_timestampsQueryPool.vkQueryPool().getResults(0, 6, 48, &m_mrSharedData->m_queryTimestamps, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
+            auto timestampCount = static_cast<u32>(gfx::FrameContextTimestampIndex::CountDiscrim);
+            gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_timestampsQueryPool.vkQueryPool().getResults(0, timestampCount, timestampCount * sizeof(u64), &m_mrSharedData->m_queryTimestamps, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
             if (supportsPipelineStatisticsQuery) gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_pipelineStatisticsQueryPool.vkQueryPool().getResults(0, 1, 32, &m_mrSharedData->m_deferredGeometryPipelineStats, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
         }
 

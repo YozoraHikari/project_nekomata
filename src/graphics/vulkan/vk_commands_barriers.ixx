@@ -46,6 +46,23 @@ public:
         return *this;
     }
 
+    template <CVulkanImage TVulkanImage>
+    auto insertImageMemoryBarrierSubresource(TVulkanImage& image, vk::ImageLayout srcLayout, vk::PipelineStageFlags2 srcStage, vk::AccessFlags2 srcAccess, vk::ImageLayout dstLayout, vk::PipelineStageFlags2 dstStage, vk::AccessFlags2 dstAccess, vk::ImageSubresourceRange subresourceRange) -> VulkanPipelineBarriers& {
+        auto barrier = vk::ImageMemoryBarrier2{}
+            .setOldLayout(srcLayout)
+            .setSrcStageMask(srcStage)
+            .setSrcAccessMask(srcAccess)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setNewLayout(dstLayout)
+            .setDstStageMask(dstStage)
+            .setDstAccessMask(dstAccess)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setImage(image.vkImage())
+            .setSubresourceRange(subresourceRange);
+        m_imageMemoryBarriers.emplace(barrier);
+        return *this;
+    }
+
     auto byRegion() -> VulkanPipelineBarriers& {
         m_dependencyFlags |= vk::DependencyFlagBits::eByRegion;
         return *this;
