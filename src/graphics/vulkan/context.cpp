@@ -275,7 +275,8 @@ auto VulkanContext::createVkDevice(const vk::raii::PhysicalDevice& vkPhysicalDev
         vk::PhysicalDeviceAccelerationStructureFeaturesKHR{}.setAccelerationStructure(true),
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR{}.setRayTracingPipeline(true),
         vk::PhysicalDeviceAntiLagFeaturesAMD{}.setAntiLag(true),
-        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR{}.setPipelineExecutableInfo(true)
+        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR{}.setPipelineExecutableInfo(true),
+        vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR{}.setSwapchainMaintenance1(true)
     };
 
     if (!vkPhysicalDeviceProps.m_hasRayTracing) {
@@ -289,6 +290,10 @@ auto VulkanContext::createVkDevice(const vk::raii::PhysicalDevice& vkPhysicalDev
 
     if (!vkPhysicalDeviceProps.m_hasPipelineExecutableProperties) {
         chain.unlink<vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR>();
+    }
+
+    if (!vkPhysicalDeviceProps.m_hasSwapchainMaintenance1) {
+        chain.unlink<vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR>();
     }
 
     auto device = vkCheckResult(vkPhysicalDevice.createDevice(chain.get<vk::DeviceCreateInfo>()));

@@ -20,7 +20,8 @@ using VulkanFeaturePtr = FlatVariant<
     vk::Bool32 vk::PhysicalDeviceAntiLagFeaturesAMD::*,
     vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::*,
     vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::*,
-    vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::*
+    vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::*,
+    vk::Bool32 vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR::*
 >;
 
 struct RequiredFeatureRule {
@@ -124,6 +125,10 @@ static auto kOptFeaturesTessellation = std::to_array<VulkanFeaturePtr>({ &vk::Ph
 static auto kOptExtensionsPipelineExecutableProperties = std::to_array<std::string_view>({ vk::KHRPipelineExecutablePropertiesExtensionName });
 static auto kOptFeaturesPipelineExecutableProperties = std::to_array<VulkanFeaturePtr>({ &vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::pipelineExecutableInfo });
 
+// for SwapchainMaintenance1
+static auto kOptExtensionsSwapchainMaintenance1 = std::to_array<std::string_view>({ vk::KHRSwapchainMaintenance1ExtensionName });
+static auto kOptFeaturesSwapchainMaintenance1 = std::to_array<VulkanFeaturePtr>({ &vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR::swapchainMaintenance1 });
+
 // Table
 static auto kOptionalPhysicalDeviceFeatures = std::to_array<OptFeatureRule>({
     { "FP16 Arithmetic"sv,                                   kOptExtensionsFp16, kOptFeaturesFp16, &VulkanPhysicalDeviceProperties::m_hasFp16 },
@@ -136,7 +141,8 @@ static auto kOptionalPhysicalDeviceFeatures = std::to_array<OptFeatureRule>({
     { "AMD Anti-Lag 2"sv,                                    kOptExtensionsAMDAntiLag2, kOptFeaturesAMDAntiLag2, &VulkanPhysicalDeviceProperties::m_hasAMDAntiLag2 },
     { "Pipeline Statistics Query"sv,                         kOptExtensionsPipelineStatisticsQuery, kOptFeaturesPipelineStatisticsQuery, &VulkanPhysicalDeviceProperties::m_hasPipelineStatisticsQuery },
     { "Tessellation"sv,                                      kOptExtensionsTessellation, kOptFeaturesTessellation, &VulkanPhysicalDeviceProperties::m_hasTessellation },
-    { "Pipeline Executable Properties"sv,                    kOptExtensionsPipelineExecutableProperties, kOptFeaturesPipelineExecutableProperties, &VulkanPhysicalDeviceProperties::m_hasPipelineExecutableProperties }
+    { "Pipeline Executable Properties"sv,                    kOptExtensionsPipelineExecutableProperties, kOptFeaturesPipelineExecutableProperties, &VulkanPhysicalDeviceProperties::m_hasPipelineExecutableProperties },
+    { "Swapchain Maintenance 1"sv,                           kOptExtensionsSwapchainMaintenance1, kOptFeaturesSwapchainMaintenance1, &VulkanPhysicalDeviceProperties::m_hasSwapchainMaintenance1 },
 });
 // clang-format on
 
@@ -253,7 +259,7 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
         vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDevicePipelineBinaryFeaturesKHR,
         vk::PhysicalDeviceRayTracingPipelineFeaturesKHR, vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
         vk::PhysicalDeviceImageViewMinLodFeaturesEXT, vk::PhysicalDeviceAntiLagFeaturesAMD,
-        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR
+        vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR, vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR
     >();
 
     for (auto& rule : kRequiredPhysicalDeviceFeatures) {
@@ -304,7 +310,8 @@ auto VulkanPhysicalDeviceProperties::query(const vk::raii::PhysicalDevice& vkPhy
                 [&](vk::Bool32 vk::PhysicalDeviceAntiLagFeaturesAMD::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceAntiLagFeaturesAMD>().*(ptr); },
                 [&](vk::Bool32 vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>().*(ptr); },
                 [&](vk::Bool32 vk::PhysicalDeviceAccelerationStructureFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>().*(ptr); },
-                [&](vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR>().*(ptr); }
+                [&](vk::Bool32 vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDevicePipelineExecutablePropertiesFeaturesKHR>().*(ptr); },
+                [&](vk::Bool32 vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR::* ptr) { satisfied &= featuresQuery.get<vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR>().*(ptr); }
             );
         }
 
