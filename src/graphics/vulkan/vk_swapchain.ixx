@@ -58,6 +58,7 @@ public:
     [[nodiscard]] auto acquireNextImage(u64 timeoutNanos, const VulkanBinarySemaphore& imageAcquireSemaphore) -> std::pair<Option<u32>, bool>;
     [[nodiscard]] auto imageAtIndex(u32 index) -> SwapchainImage& { return m_vkSwapchainImages[index]; }
 
+    [[nodiscard]] auto imageExtent() const -> vk::Extent2D { return m_swapchainImageExtent; }
     [[nodiscard]] auto vkSwapchain() const -> const vk::raii::SwapchainKHR& { return m_vkSwapchain.vkHandle(); }
     [[nodiscard]] auto hasVsync() const -> bool { return m_hasVsync; }
 

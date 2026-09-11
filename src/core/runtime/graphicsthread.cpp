@@ -20,6 +20,7 @@ auto RenderThread::runMainLoop() -> void {
     gfx::vkrhi::VulkanCommandPoolsList::initThreadLocalCommandPools();
 
     m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, None, cvRdVsync.get());
+    m_currentWindowExtent = m_vkSwapchain.imageExtent();
     // TODO : remove the abuse
     std::construct_at(&m_sharedRenderingResources);
     m_transientRenderingResources = gfx::TransientRenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
@@ -74,12 +75,13 @@ auto RenderThread::loop() -> void {
     auto maybeNewWindowExtent = m_mrSharedData->m_leafs.getSecondary().m_currentWindowExtent;
     auto vsyncStatusChanged = cvRdVsync.get() != m_vkSwapchain.hasVsync();
     if (m_mustRecreateSwapchainNextFrame || m_currentWindowExtent != maybeNewWindowExtent || vsyncStatusChanged) {
-        m_currentWindowExtent = maybeNewWindowExtent;
         m_mustRecreateSwapchainNextFrame = false;
 
         // TODO: This is to work around present queues not being friendly to synchronize
         gfx::vkrhi::VulkanContext::get().vkDevice().waitIdle();
-        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(m_vkSwapchain)), cvRdVsync.get());
+        auto oldSwapchain = std::move(m_vkSwapchain);
+        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(oldSwapchain)), cvRdVsync.get());
+        m_currentWindowExtent = m_vkSwapchain.imageExtent();
         m_transientRenderingResources.handleWindowSizeChange(m_currentWindowExtent);
     }
 
