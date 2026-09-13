@@ -55,7 +55,6 @@ auto selectBloomStagingMipCount(vk::Extent2D renderImageExtent) -> u32 {
 
     auto imageSize = static_cast<double>(std::max(renderImageExtent.width, renderImageExtent.height));
     auto mipCount = 1_u32 + static_cast<u32>(std::floor(std::log2(imageSize / desiredSmallestMipSize)));
-    log::info("mip count: {}", mipCount);
     return mipCount;
 }
 

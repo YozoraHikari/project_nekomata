@@ -80,7 +80,7 @@ auto RenderThread::loop() -> void {
         // TODO: This is to work around present queues not being friendly to synchronize
         gfx::vkrhi::VulkanContext::get().vkDevice().waitIdle();
         auto oldSwapchain = std::move(m_vkSwapchain);
-        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(m_currentWindowExtent, Some(std::move(oldSwapchain)), cvRdVsync.get());
+        m_vkSwapchain = gfx::vkrhi::VulkanSwapchain::create(maybeNewWindowExtent, Some(std::move(oldSwapchain)), cvRdVsync.get());
         m_currentWindowExtent = m_vkSwapchain.imageExtent();
         m_transientRenderingResources.handleWindowSizeChange(m_currentWindowExtent);
     }
