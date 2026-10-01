@@ -22,8 +22,8 @@ private:
     auto loop() -> void;
 
     gfx::vkrhi::VulkanSwapchain m_vkSwapchain = nullptr;
-    gfx::SharedRenderingResources m_sharedRenderingResources = nullptr;
-    gfx::TransientRenderingResources m_transientRenderingResources = nullptr;
+    gfx::SharedRenderingData m_sharedRenderingResources = nullptr;
+    gfx::RenderingResources m_transientRenderingResources = nullptr;
     std::array<gfx::FrameContext, MAX_FRAMES_IN_FLIGHT> m_frames = {nullptr};
     usize m_currentFrameContextIndex = 0;
     usize m_currentFrameNumber = 0;

@@ -1,5 +1,6 @@
 module;
 #include <SDL3/SDL_events.h>
+#include <tracy/Tracy.hpp>
 module projnekomata;
 import vulkan;
 import fmt;
@@ -63,13 +64,19 @@ auto MainThread::runMainLoop(const std::function<void(Unique<ecs::World>&)>& ini
 }
 
 auto MainThread::loop(float dt) -> void {
+    ZoneScoped;
     m_inputManager->handleNewFrame(m_sdlWindow);
-    gfx::vkrhi::VulkanContext::get().antiLagPaceInput(m_frameIndex, 0);
+    {
+        ZoneScopedN("AntiLag Input Pace");
+        gfx::vkrhi::VulkanContext::get().antiLagPaceInput(m_frameIndex, 0);
+    }
 
     auto logicalSize = m_sdlWindow.getLogicalSize();
     auto logicalSizeFloat = math::Vector2f(logicalSize.x(), logicalSize.y());
     SDL_Event event;
     auto totalMouseDelta = math::Vector2f::zero();
+    {
+        ZoneScopedN("SDL Events");
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
         case SDL_EVENT_QUIT: {
@@ -131,6 +138,7 @@ auto MainThread::loop(float dt) -> void {
         }
         }
     }
+    }
     m_inputManager->setMouseDelta(totalMouseDelta);
 
     // ---- Renderer overlay control ---------------------------------------------------------------------------------------------------------------------------
@@ -143,34 +151,52 @@ auto MainThread::loop(float dt) -> void {
         .isSome();
 
 
-    m_currentWorld->scriptsUpdate(dt);
-    updateEcsWorldTransforms();
-
-    m_mrSharedData->m_leafs.getPrimary().m_currentWindowExtent = m_sdlWindow.vulkanGetDrawableSize();
-    m_mrSharedData->m_leafs.getPrimary().m_frameIndex = m_frameIndex;
-    if (!m_currentWorld.isNull()) {
-        m_currentWorld->components<RenderableComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_renderables);
-        m_currentWorld->components<PointlightComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_pointlights);
-        m_currentWorld->components<WorldTransformComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_transforms);
-        m_currentWorld->components<CameraComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_cameras);
+    {
+        ZoneScopedN("World Update");
+        m_currentWorld->scriptsUpdate(dt);
     }
-    m_textureManager->textureToShaderIndexTable().snapshotTables(
-        m_mrSharedData->m_leafs.getPrimary().m_textureToImageShaderIndexSnapshot,
-        m_mrSharedData->m_leafs.getPrimary().m_textureToSamplerShaderIndexSnapshot
-    );
-    m_mrSharedData->m_leafs.getPrimary().m_materialHeapSnapshotsBySize.clear();
+    {
+        ZoneScopedN("ECS World Transforms");
+        updateEcsWorldTransforms();
+    }
 
-    for (auto [size, heap] : m_materialManager->materialParamHeapsMap().iter()) {
-        auto data = heap->data();
-        auto vec = Vec<u8>::withCapacity(data.len());
-        vec.extend(data);
-        m_mrSharedData->m_leafs.getPrimary().m_materialHeapSnapshotsBySize.emplace(size, std::move(vec));
+    {
+        ZoneScopedN("Copy Data - ECS");
+        m_mrSharedData->m_leafs.getPrimary().m_currentWindowExtent = m_sdlWindow.vulkanGetDrawableSize();
+        m_mrSharedData->m_leafs.getPrimary().m_frameIndex = m_frameIndex;
+        if (!m_currentWorld.isNull()) {
+            m_currentWorld->components<RenderableComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_renderables);
+            m_currentWorld->components<LightComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_lights);
+            m_currentWorld->components<WorldTransformComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_transforms);
+            m_currentWorld->components<CameraComponent>().copyTo(m_mrSharedData->m_leafs.getPrimary().m_cameras);
+        }
+    }
+    {
+        ZoneScopedN("Copy Data - Texture to Image/Sampler Tables");
+        m_textureManager->textureToShaderIndexTable().snapshotTables(
+            m_mrSharedData->m_leafs.getPrimary().m_textureToImageShaderIndexSnapshot,
+            m_mrSharedData->m_leafs.getPrimary().m_textureToSamplerShaderIndexSnapshot
+        );
+    }
+    {
+        ZoneScopedN("Copy Data - Materials");
+        m_mrSharedData->m_leafs.getPrimary().m_materialHeapSnapshotsBySize.clear();
+
+        for (auto [size, heap] : m_materialManager->materialParamHeapsMap().iter()) {
+            auto data = heap->data();
+            auto vec = Vec<u8>::withCapacity(data.len());
+            vec.extend(data);
+            m_mrSharedData->m_leafs.getPrimary().m_materialHeapSnapshotsBySize.emplace(size, std::move(vec));
+        }
     }
 
     // ---- UI -------------------------------------------------------------------------------------------------------------------------------------------------
 
     auto fontRasterBatches = Vec<FontRasterBatch>::create();
-    ui::UiSystem::get().scanForUnrasterizedGlyphs(fontRasterBatches, m_mrSharedData->m_fontAtlas);
+    {
+        ZoneScopedN("UI Glyph Scan");
+        ui::UiSystem::get().scanForUnrasterizedGlyphs(fontRasterBatches, m_mrSharedData->m_fontAtlas);
+    }
 
     Option<std::string> debugText = None;
     auto debugTextFontSize = 14.0_f32;
@@ -185,8 +211,9 @@ auto MainThread::loop(float dt) -> void {
 
         if (m_mrSharedData->m_queryPoolStatsAreValid) {
             auto& queryTimestamps = m_mrSharedData->m_queryTimestamps;
-            auto& pipelineStats = m_mrSharedData->m_deferredGeometryPipelineStats;
+            auto& pipelineStats = m_mrSharedData->m_queryPipelineStats;
             auto geomPassTime = (queryTimestamps.afterGeometryPass - queryTimestamps.beforeGeometryPass) * deviceTimestampPeriod / 1000000.0_f64;
+            auto shadowPassTime = (queryTimestamps.afterShadowsPass - queryTimestamps.beforeShadowsPass) * deviceTimestampPeriod / 1000000.0_f64;
             auto lightingPassTime = (queryTimestamps.afterLightingPass - queryTimestamps.beforeLightingPass) * deviceTimestampPeriod / 1000000.0_f64;
             auto bloomFilterTime = (queryTimestamps.afterBloomFilter - queryTimestamps.beforeBloomFilter) * deviceTimestampPeriod / 1000000.0_f64;
             auto tonemapFuseTime = (queryTimestamps.afterTonemapFuse - queryTimestamps.beforeTonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
@@ -194,9 +221,13 @@ auto MainThread::loop(float dt) -> void {
             auto uiTime = (queryTimestamps.afterUI - queryTimestamps.beforeUI) * deviceTimestampPeriod / 1000000.0_f64;
 
             if (supportsPipelineStatisticsQuery) {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms #VS: {} #TCS: {} #TES: {} #FS: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, pipelineStats[0], pipelineStats[2], pipelineStats[3], pipelineStats[1], lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
+                queryStats = fmt::format("\n GeomPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {} #FS: {}\n ShadowPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms",
+                    geomPassTime, m_mrSharedData->m_numDrawcalls, pipelineStats.deferredGeometryStage.vsInvocationCount, pipelineStats.deferredGeometryStage.tcsInvocationCount, pipelineStats.deferredGeometryStage.tesInvocationCount, pipelineStats.deferredGeometryStage.fsInvocationCount,
+                    shadowPassTime, m_mrSharedData->m_numDrawcallsShadows, pipelineStats.shadowPassStage.vsInvocationCount, pipelineStats.shadowPassStage.tcsInvocationCount, pipelineStats.shadowPassStage.tesInvocationCount,
+                    lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime
+                );
             } else {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
+                queryStats = fmt::format("\n GeomPass: {:.3f} ms\n ShadowPass: {:.3f} ms\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, shadowPassTime, lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
             }
         }
 
@@ -223,7 +254,7 @@ auto MainThread::loop(float dt) -> void {
                 " FPS: {:.2f} ({:.3f}ms)\n\n"
                 " -SDL-\n Video Driver: {}\n\n"
                 " -Vulkan-\n Device: {}\n Driver: {} {}.{}.{}.{} API Version {}.{}.{}.{}\n VRAM: {}\n Shader Cache: {}\n Descriptor Binding Model: {}\n Anti-Lag: {}\n\n"
-                " -Stats-\n Drawcalls: {}{}",
+                " -Stats-{}",
             1000.0f / m_mrSharedData->m_deltaTime, m_mrSharedData->m_deltaTime,
             m_mrSharedData->m_sdlVideoDriverName,
             physicalDeviceProps.m_deviceName,
@@ -233,7 +264,6 @@ auto MainThread::loop(float dt) -> void {
             gfx::vkrhi::VulkanContext::get().shaderCache()->usesPipelineBinaries() ? "Yes" : "No",
             gfx::TextureManager::get().shaderResourceTable().modelName(),
             gfx::vkrhi::antiLagMethodToString(gfx::vkrhi::VulkanContext::get().antiLagMethod()),
-            m_mrSharedData->m_numDrawcalls,
             queryStats
         );
         auto rasterbatch = FontManager::get().findAndBatchMissingGlyphs(m_overlayFont, m_mrSharedData->m_fontAtlas, text, debugTextFontSize);
@@ -243,10 +273,12 @@ auto MainThread::loop(float dt) -> void {
         debugText = Some(std::move(text));
     }
 
+
     m_mrSharedData->m_leafs.getPrimary().m_fontsCopyRegions.clear();
     m_mrSharedData->m_leafs.getPrimary().m_fontsUploadPixelBuffer.clear();
     m_mrSharedData->m_leafs.getPrimary().m_fontsNewImageIndices.clear();
     if (fontRasterBatches.len() > 0) {
+        ZoneScopedN("UI Glyph Rasterization");
         FontRasterInfo rasterInfo = {
             .batches         = fontRasterBatches.asSlice(),
             .atlas           = m_mrSharedData->m_fontAtlas,
@@ -257,8 +289,11 @@ auto MainThread::loop(float dt) -> void {
         FontManager::get().rasterizeGlyphs(rasterInfo);
     }
 
-    m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.clear();
-    ui::UiSystem::get().buildUi(m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds, m_mrSharedData->m_fontAtlas, logicalSizeFloat, m_sdlWindow);
+    {
+        ZoneScopedN("UI Build");
+        m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds.clear();
+        ui::UiSystem::get().buildUi(m_mrSharedData->m_leafs.getPrimary().m_uiDrawCmds, m_mrSharedData->m_fontAtlas, logicalSizeFloat, m_sdlWindow);
+    }
 
     if (debugText.isSome()) {
         auto glyphs = FontManager::get().shapeText(m_overlayFont, m_mrSharedData->m_fontAtlas, debugText.unwrap(), debugTextFontSize, false).first;

@@ -15,23 +15,24 @@ Vulkan 3D Engine using C++26 with modules mainly set for learning systems progra
 - Textures
 - Async loading of KTX2 textures
 - Bindless textures and samplers
+- glTF scene loading
 - Dynamic deferred lighting with PBR IBL
+- Basic retained mode UI
 - Bitmap font rendering with on-the-fly font atlas generation
 - Basic script system
 - `VK_KHR_pipeline_binary`-based pipeline caching
 - SMAA antialiasing
+- Spot / Omnidirectional shadow mapping
+- Bloom (based on CoD technique from SIGGRAPH 2014)
 
 ## Planned Features
 
-- Shadow mapping
 - A more full UI solution
 - MSDF font rendering
-- Model loading (most likely glTF)
 - Physics
 - `VK_EXT_descriptor_heap`-based texture and sampler tables
 - Ray tracing
-- Render graph
-- Post-processing effects (bloom, etc.)
+- Render graph along with a more full post-processing pass management solution
 
 ## Building
 
@@ -39,8 +40,8 @@ Note that the version numbers provided are what the project works with. Earlier 
 
 To build the project, you need the following dependencies:
 - Base development packages (e.g. `base-devel` on Arch Linux).
-- CMake 4.3. Not lower, not higher.
-- Clang 22 or later (GCC may work but not tested and is not really supported in the long run)
+- CMake 4.4. Not lower, not higher.
+- Clang++ 22 or later (other compilers such as g++ and MSVC++ are not supported)
 - Vulkan SDK (the project typically requires the very latest version of the SDK but a couple versions back might work fine)
 - Slang compiler v2026.11 or later. Older versions might cause issues on AMD graphics cards due to a bug in the Slang compiler with NURI.
 - SDL3 3.4.8 or later

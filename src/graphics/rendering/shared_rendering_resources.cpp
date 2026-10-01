@@ -16,8 +16,8 @@ namespace projnekomata::gfx {
 constexpr u32 prefilterImageSize = 512;
 constexpr u32 prefilterImageMips = std::bit_width(prefilterImageSize) - 3;
 
-SharedRenderingResources::SharedRenderingResources(std::nullptr_t) {}
-SharedRenderingResources::SharedRenderingResources() {
+SharedRenderingData::SharedRenderingData(std::nullptr_t) {}
+SharedRenderingData::SharedRenderingData() {
 
     auto samplerParams = SamplerParams::defaultValues()
         .setMinFilter(vk::Filter::eLinear)
@@ -111,7 +111,7 @@ SharedRenderingResources::SharedRenderingResources() {
         .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
         // .addDescriptorSetLayout(m_subpassInputAttachmentsDescriptorSetLayout)
         .addPushConstantRange(
-            0, 68,
+            0, 96,
             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
         )
         .build();
@@ -329,21 +329,38 @@ SharedRenderingResources::SharedRenderingResources() {
         .setShader(bloomUpsampleShader)
         .build();
 
+    m_lightShadowRenderingPipelineLayout = vkrhi::VulkanPipelineLayout::builder()
+        .addDescriptorSetLayout(TextureManager::get().shaderResourceTable().descriptorSetLayout())
+        .addPushConstantRange(0, 32, vk::ShaderStageFlagBits::eVertex)
+        .build();
+    auto lightShadowRenderingShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/mainrender_geom_shadow.spv").unwrap();
+    m_lightShadowRenderingPipeline = vkrhi::VulkanGraphicsPipeline::builder()
+        .setPipelineLayout(m_lightShadowRenderingPipelineLayout)
+        .addShader(lightShadowRenderingShader, vk::ShaderStageFlagBits::eVertex)
+        .setInputTopology(vk::PrimitiveTopology::eTriangleList)
+        .setRastCulling(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
+        .setRastLineWidth(1.0)
+        .disableMultisampling()
+        .setDepthAttachmentFormat(vk::Format::eD32Sfloat)
+        .enableDepthTest()
+        .enableDepthWrite()
+        .enableDepthBias()
+        .setDepthBiasConstantFactor(-1.25f)
+        .setDepthBiasSlopeFactor(-1.75f)
+        .build();
+
     buildIblSecondaryCubemaps();
 }
 
 static auto& cvRdSmaaQuality = CvarManager::get().registerCvar<u32>("rd.smaaqlevel", 3);
 
-auto SharedRenderingResources::checkGraphicsSettingsAndMaybeRecompileShaders() -> void {
+auto SharedRenderingData::checkGraphicsSettingsAndMaybeRecompileShaders() -> void {
     if (m_compiledSmaaPreset != cvRdSmaaQuality.get()) {
         buildSmaaPipelines();
     }
 }
 
-auto SharedRenderingResources::refitHysteresisStates(usize renderableSparseCount) -> void {
-    if (m_meshHysteresisStates.len() < renderableSparseCount) {
-        m_meshHysteresisStates.resize(renderableSparseCount, MeshHysteresisState());
-    }
+auto SharedRenderingData::refitHysteresisStates(usize renderableSparseCount) -> void {
     if (m_lastRenderableModelMatrices.len() < renderableSparseCount) {
         m_lastRenderableModelMatrices.resize(renderableSparseCount, Matrix4x4f::identity());
     }
@@ -360,7 +377,62 @@ auto mapSmaaQualityToPreset(u32 val) -> SmaaSpecializationConsts& {
     }
 }
 
-auto SharedRenderingResources::buildSmaaPipelines() -> void {
+auto SharedRenderingData::resetShadowmapAtlases() -> void {
+    m_currShadowmapDescriptorCount = 0;
+
+    for (auto& atlasShadowRenderingJobs : m_shadowRenderingJobsPerAtlas)
+        atlasShadowRenderingJobs.clear();
+
+    for (auto& atlas : m_shadowMapAtlases)
+        atlas.atlasShelfPacker.reset();
+}
+
+auto SharedRenderingData::allocateShadowmapTile(math::Vector2i size) -> ShadowmapAtlasAllocation {
+    always_assert(size.x() <= kShadowMapAtlasSize.x() && size.y() <= kShadowMapAtlasSize.y(), "the requested shadow tile size is too large");
+
+    // Path 1 - Search for space in an existing atlas.
+    for (auto [i, shadowmapAtlas] : m_shadowMapAtlases.iterMut().enumerate()) {
+        auto rect = shadowmapAtlas.atlasShelfPacker.pack(size.x(), size.y());
+        if (rect.isNone()) continue;
+
+        return {
+            .shadowmapAtlasIndex = static_cast<u32>(i),
+            .texelOffset = rect.unwrap()
+        };
+    }
+
+    // Path 2 - Make a new atlas.
+    auto& srt = TextureManager::get().shaderResourceTable();
+    auto imageIndex = m_shadowMapAtlases.len();
+    auto imageName = fmt::format("Shadowmap atlas #{}", imageIndex);
+    auto shadowmapImage = vkrhi::VulkanImage::builder()
+        .name(imageName)
+        .type(vk::ImageType::e2D)
+        .extentsrd(vk::Extent3D { kShadowMapAtlasSize.x(), kShadowMapAtlasSize.y(), 1 }, 1, 1)
+        .isCubemap(false)
+        .format(vk::Format::eD32Sfloat)
+        .tiling(vk::ImageTiling::eOptimal)
+        .usage(vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eDepthStencilAttachment)
+        .memoryUsage(vma::MemoryUsage::eAutoPreferDevice)
+        .queueFamilyIndices(vkrhi::QueueFamily::Graphics)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .build();
+
+    auto shadowmapImageIndex = srt.allocateSampledImageIndex();
+    srt.bindSampledImage(shadowmapImage, shadowmapImageIndex);
+
+    m_shadowMapAtlases.emplace(std::move(shadowmapImage), AtlasShelfPacker(kShadowMapAtlasSize.x(), kShadowMapAtlasSize.y()), shadowmapImageIndex);
+    m_shadowRenderingJobsPerAtlas.emplace(Vec<ShadowRenderingJob>::create());
+
+    auto rect = m_shadowMapAtlases.last().atlasShelfPacker.pack(size.x(), size.y()).unwrap();
+
+    return {
+        .shadowmapAtlasIndex = static_cast<u32>(imageIndex),
+        .texelOffset = rect
+    };
+}
+
+auto SharedRenderingData::buildSmaaPipelines() -> void {
     auto smaaQuality = cvRdSmaaQuality.get();
     auto smaaPreset = mapSmaaQualityToPreset(smaaQuality);
 
@@ -466,7 +538,7 @@ auto SharedRenderingResources::buildSmaaPipelines() -> void {
 
 }
 
-auto SharedRenderingResources::buildIblSecondaryCubemaps() -> void {
+auto SharedRenderingData::buildIblSecondaryCubemaps() -> void {
     auto& irradianceImage = TextureManager::get().getTextureResources(m_skyIrradianceCubemap).image();
     auto& prefilterImage = TextureManager::get().getTextureResources(m_skyPrefilterCubemap).image();
     f32 cubeResolution = static_cast<f32>(TextureManager::get().getTextureResources(m_skyCubemap).image().extent().width);

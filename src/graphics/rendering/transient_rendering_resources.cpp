@@ -9,9 +9,9 @@ import :graphics.vulkan.vk_commands_barriers;
 
 namespace projnekomata::gfx {
 
-TransientRenderingResources::TransientRenderingResources(std::nullptr_t) {  }
+RenderingResources::RenderingResources(std::nullptr_t) {  }
 
-TransientRenderingResources::TransientRenderingResources(vk::Extent2D renderImageExtent, SharedRenderingResources& sharedResources) {
+RenderingResources::RenderingResources(vk::Extent2D renderImageExtent, SharedRenderingData& sharedResources) {
     auto& srt = TextureManager::get().shaderResourceTable();
     m_depthBufferIndex = srt.allocateSampledImageIndex();
     m_albedoAndRoughnessBufferIndex = srt.allocateSampledImageIndex();
@@ -35,7 +35,7 @@ TransientRenderingResources::TransientRenderingResources(vk::Extent2D renderImag
     setupRenderingAttachments(renderImageExtent);
 }
 
-auto TransientRenderingResources::handleWindowSizeChange(vk::Extent2D newWindowSize) -> void {
+auto RenderingResources::handleWindowSizeChange(vk::Extent2D newWindowSize) -> void {
     setupRenderingAttachments(newWindowSize);
 }
 
@@ -58,7 +58,7 @@ auto selectBloomStagingMipCount(vk::Extent2D renderImageExtent) -> u32 {
     return mipCount;
 }
 
-auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderImageExtent) -> void {
+auto RenderingResources::setupRenderingAttachments(vk::Extent2D renderImageExtent) -> void {
     auto& srt = TextureManager::get().shaderResourceTable();
 
     auto colorMutableFormats = StaticSlice<const vk::Format>::inst<vk::Format::eR8G8B8A8Srgb, vk::Format::eR8G8B8A8Unorm>();
@@ -208,7 +208,7 @@ auto TransientRenderingResources::setupRenderingAttachments(vk::Extent2D renderI
 
     zeroinitColorBuffers();
 }
-auto TransientRenderingResources::zeroinitColorBuffers() -> void {
+auto RenderingResources::zeroinitColorBuffers() -> void {
     auto cb = vkrhi::VulkanCommandPoolsList::getAssignedGraphicsCommandPool().allocateCommandBuffer(vk::CommandBufferLevel::ePrimary);
     auto& cmd = cb.vkCommandBuffer();
 

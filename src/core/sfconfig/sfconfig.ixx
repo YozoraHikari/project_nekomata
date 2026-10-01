@@ -21,7 +21,6 @@ struct DataNode {
 
     Type value;
 
-    DataNode() = default;
     DataNode(Type v) : value(std::move(v)) {}
 
     [[nodiscard]] constexpr auto isObject() const -> bool { return matches<Unique<DataNodeMap>>(value); }

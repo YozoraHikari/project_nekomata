@@ -44,7 +44,7 @@ auto menuButton(const std::string& text, projnekomata::FontFace fontFace, const 
 
 class CameraScript : public projnekomata::ecs::ScriptBase {
 public:
-    CameraScript(projnekomata::FontFace face) : m_fontFace(face) {}
+    CameraScript(projnekomata::FontFace face, projnekomata::ecs::Entity lightEntity) : m_fontFace(face), m_lightEntity(lightEntity) {}
 
     void onCreate() override {
         m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity)
@@ -66,7 +66,15 @@ public:
         auto posText = projnekomata::ui::UIText::create("hai :3", 18.0f, m_fontFace);
 
         m_text = posText.ptr();
-        //projnekomata::ui::UiSystem::get().getRoot().addChild(std::move(posText));
+        projnekomata::ui::UiSystem::get().getRoot().addChild(
+            projnekomata::ui::UIBox::builder()
+                .child(std::move(posText))
+                .anchorX(0.0f)
+                .anchorY(1.0f)
+                .positionX(5.0f)
+                .positionY(-20.0f)
+                .build()
+        );
 
         // ---- Escape Overlay Memes ---------------------------------------------------------------------------------------------------------------------------
 
@@ -264,6 +272,12 @@ public:
             if (Input::get().isKeyDown(Key::D)) sidewaysVel -= 1.0f;
             if (Input::get().isKeyDown(Key::Space)) upVel += 1.0f;
             if (Input::get().isKeyDown(Key::C)) upVel -= 1.0f;
+
+            if (Input::get().isKeyDown(Key::L)) {
+                m_workingWorld->get<projnekomata::LocalTransformComponent>(m_lightEntity).m_transform3d
+                    = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d;
+                m_workingWorld->get<projnekomata::LocalTransformComponent>(m_lightEntity).m_transform3d.m_scale = Vector3f(0.05f);
+            }
         }
         auto dp = Vector3f(sidewaysVel, upVel, forwardVel);
 
@@ -284,8 +298,12 @@ public:
             m_escOverlay->visible = true;
         }
 
-        auto camPos = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d.m_position;
-        //acquireInto<projnekomata::ui::UiText>(m_text->element).text = "";
+        auto& transform = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d;
+        static_cast<projnekomata::ui::UIText*>(m_text)->text = fmt::format(
+            "position: x {} y {} z {}\nrotation: i {} j {} k {} w {}",
+            transform.m_position.x(), transform.m_position.y(), transform.m_position.z(),
+            transform.m_rotation.m_x, transform.m_rotation.m_y, transform.m_rotation.m_z, transform.m_rotation.m_w
+        );
     }
 
     bool m_handleInput = true;
@@ -295,6 +313,8 @@ public:
     projnekomata::FontFace m_fontFace;
     projnekomata::ui::UINode* m_text = nullptr;
     projnekomata::ui::UINode* m_escOverlay = nullptr;
+
+    projnekomata::ecs::Entity m_lightEntity;
 };
 
 class SpinningCubesScript : public projnekomata::ecs::ScriptBase {
@@ -353,7 +373,6 @@ std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments
 
     return {std::move(vertices), std::move(indices)};
 }
-
 
 void onGameInit(Unique<projnekomata::ecs::World>& world) {
     auto& ts = projnekomata::gfx::TextureManager::get();
@@ -447,10 +466,8 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
             auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
             auto matprops = projnekomata::CoreMaterialProps()
                 .setRoughness(xp)
-                .setMetallic(0.0f)
-                .setColor(color)
-                .setEmissive(color * yp * 4.0f);
-/*
+                .setMetallic(0.0f);
+
             auto texindex = texIndexDist(gen);
 
             switch (texindex) {
@@ -461,16 +478,21 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
                 case 4: matprops.setColor(ts5); break;
                 case 5: matprops.setColor(ts6); break;
                 case 6: matprops.setColor(ts7); break;
-                case 7: matprops.setColor(Vector3f(colorDist(gen), colorDist(gen), colorDist(gen))); break;
+                case 7: {
+                    auto color = Vector3f(colorDist(gen), colorDist(gen), colorDist(gen));
+                    matprops.setColor(color);
+                    matprops.setEmissive(color * yp * 4.0f);
+                    break;
+                }
             }
-*/
+
             auto matl = projnekomata::gfx::Material::create<projnekomata::CoreMaterialProps>(mainMaterialShader, std::move(matprops));
 
             auto ent = world->createEntity();
             world->emplace<projnekomata::LocalTransformComponent>(ent, std::move(transform));
             world->emplace<projnekomata::WorldTransformComponent>(ent);
             world->emplace<projnekomata::RenderableComponent>(ent, mesh, matl);
-//                world->addScript<MovingScript>(ent, 0.0f, radiusDist(gen), thetaSpeedDist(gen), phiSpeedDist(gen), thetaDist(gen), phiDist(gen), rotationConstDist(gen), rotationConstDist(gen));
+            //                world->addScript<MovingScript>(ent, 0.0f, radiusDist(gen), thetaSpeedDist(gen), phiSpeedDist(gen), thetaDist(gen), phiDist(gen), rotationConstDist(gen), rotationConstDist(gen));
         }
     }
 
@@ -479,38 +501,45 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
     auto translation = Vector3f(10.0f, 40.0f, 10.0f);
     auto transform = projnekomata::LocalTransformComponent(translation, rotation, scale);
 
-    auto lightEnt = world->createEntity();
+    auto lightMatlProps = projnekomata::CoreMaterialProps()
+        .setColor(Vector3f(1.0f, 1.0f, 1.0f))
+        .setEmissive(Vector3f(10.0f, 10.0f, 10.0f))
+        .setMetallic(0.0f)
+        .setRoughness(1.0f);
 
-    world->emplace<projnekomata::PointlightComponent>(lightEnt, Vector3f{10000.0f, 10000.0f, 10000.0f});
-    world->emplace<projnekomata::LocalTransformComponent>(lightEnt, std::move(transform));
-    world->emplace<projnekomata::WorldTransformComponent>(lightEnt);
+    auto lightMatl = projnekomata::gfx::Material::create<projnekomata::CoreMaterialProps>(mainMaterialShader, std::move(lightMatlProps));
+
+    auto lightWithCamera = world->createEntity();
+    world->emplace<projnekomata::LocalTransformComponent>(lightWithCamera, Vector3f(-1.0f, 0.0f, -0.25f), Quaternion::fromEulerAngles(degreesToRadians(25.0f), 0.0f, 0.0f), Vector3f::one());
+    world->emplace<projnekomata::WorldTransformComponent>(lightWithCamera);
+    world->emplace<projnekomata::LightComponent>(lightWithCamera, projnekomata::LightType::Point, Vector3f(350.0f, 350.0f, 350.0f), 600.0f);
+    world->emplace<projnekomata::RenderableComponent>(lightWithCamera, mesh, lightMatl);
+
+    auto& lightWithShadow = world->get<projnekomata::LightComponent>(lightWithCamera);
+    lightWithShadow.castShadows = true;
+    lightWithShadow.shadowMapFaceSize = Vector2i(1024, 1024);
 
     auto cameraEnt = world->createEntity();
     world->emplace<projnekomata::CameraComponent>(cameraEnt, projnekomata::CameraComponent{0.01f, 10000.0f, 90.0f, true});
     world->emplace<projnekomata::LocalTransformComponent>(cameraEnt);
     world->emplace<projnekomata::WorldTransformComponent>(cameraEnt);
-    world->addScript<CameraScript>(cameraEnt, fnt);
+    world->addScript<CameraScript>(cameraEnt, fnt, lightWithCamera);
     Input::get().setMouseMode(MouseMode::Captured);
+
+
 
     auto parentOfTheFuckedCubes = world->createEntity();
     world->emplace<projnekomata::LocalTransformComponent>(parentOfTheFuckedCubes, Vector3f(20.0f, 15.0f, 6.0f), Quaternion::identity(), Vector3f(1.0f, 1.0f, 1.0f));
     world->emplace<projnekomata::WorldTransformComponent>(parentOfTheFuckedCubes);
-    world->addScript<SpinningCubesScript>(parentOfTheFuckedCubes);
 
     auto stuff = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_merged_textured_uastc.gltf", mainMaterialShader, Some(parentOfTheFuckedCubes));
 
     auto parentOfTheMoreFuckedCubes = world->createEntity();
     world->emplace<projnekomata::LocalTransformComponent>(parentOfTheMoreFuckedCubes, Vector3f(-30.0f, 15.0f, 6.0f), Quaternion::fromEulerAngles(consts::PI / -2.0f, 0.0f, 0.0f), Vector3f(1.0f, 1.0f, 1.0f));
     world->emplace<projnekomata::WorldTransformComponent>(parentOfTheMoreFuckedCubes);
+    world->addScript<SpinningCubesScript>(parentOfTheMoreFuckedCubes);
 
     auto stuff2 = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_textured_complex_uastc.gltf", mainMaterialShader, Some(parentOfTheMoreFuckedCubes));
-
-    auto lightAttachedToCubes = world->createEntity();
-    // world->emplace<projnekomata::PointlightComponent>(lightAttachedToCubes, Vector3f{100.0f, 100.0f, 100.0f});
-    world->emplace<projnekomata::LocalTransformComponent>(lightAttachedToCubes, Vector3f(10.0f, -4.0f, 6.0f), Quaternion::identity(), Vector3f(1.0f, 1.0f, 1.0f));
-    world->emplace<projnekomata::WorldTransformComponent>(lightAttachedToCubes);
-
-    world->get<projnekomata::ChildrenComponent>(parentOfTheMoreFuckedCubes).m_children.emplace(lightAttachedToCubes);
 }
 
 int main(int argc, char* argv[]) {

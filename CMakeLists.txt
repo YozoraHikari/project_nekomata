@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 4.3.4)
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "451f2fe2-a8a2-47c3-bc32-94786d8fc91b")
+cmake_minimum_required(VERSION 4.4)
+set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "f35a9ac6-8463-4d38-8eec-5d6008153e7d")
 
 include(FetchContent)
 project(project_nekomata VERSION 0.1.0 LANGUAGES CXX C)
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;DebugSanitize" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Debug;DebugSanitize;Release;RelWithDebInfo" CACHE STRING "" FORCE)
 
 find_program(SCCACHE_PROGRAM sccache)
 
@@ -25,15 +25,12 @@ add_compile_options(
         -ffp-contract=fast
         -fwrapv
         $<$<CONFIG:DebugSanitize>:-fsanitize=address,undefined>
-        $<$<CONFIG:Release>:-flto=thin>
 )
 add_link_options(
         -fuse-ld=lld
         $<$<CONFIG:DebugSanitize>:-fsanitize=address,undefined>
-        $<$<CONFIG:Release>:-flto=thin>
 )
 
-set(CMAKE_CXX_MODULE_STD ON)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -124,6 +121,19 @@ set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(ktx)
 
 set(CMAKE_CXX_STANDARD 26)
+
+
+set(TRACY_ENABLE ON CACHE BOOL "" FORCE)
+FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+        SYSTEM
+)
+FetchContent_MakeAvailable(tracy)
+
+
 # Find tcmalloc, prefer tcmalloc_minimal over tcmalloc.
 
 find_library(TCMALLOC_MINIMAL tcmalloc_minimal)
@@ -162,6 +172,9 @@ target_sources(VulkanModule
 )
 set_target_properties(VulkanModule PROPERTIES
         CXX_SCAN_FOR_MODULES ON
+        CXX_STANDARD_REQUIRED ON
+        CXX_SCAN_FOR_MODULES ON
+        CXX_MODULE_STD ON
 )
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -273,13 +286,17 @@ if (LIBBACKTRACE_INCLUDE_DIR AND LIBBACKTRACE_LIBRARY)
 
         target_compile_definitions(project_nekomata_Library PRIVATE PROJNEKOMATA_USE_LIBBACKTRACE)
 endif()
+
+target_link_libraries(project_nekomata_Library PUBLIC TracyClient)
+target_compile_definitions(project_nekomata_Library PUBLIC TRACY_VK_USE_SYMBOL_TABLE)
+target_compile_definitions(project_nekomata_Library PRIVATE TRACY_ENABLE)
+
 target_compile_options(
         project_nekomata_Library PRIVATE
         -ftls-model=local-exec
         -fvisibility=hidden
         -fvisibility-inlines-hidden
         -fno-semantic-interposition
-        -ftime-trace
 
         -Wall
         -Wextra
@@ -301,6 +318,12 @@ target_compile_options(
 
         -Werror=tautological-compare
 )
+target_compile_features(project_nekomata_Library PRIVATE cxx_std_26)
+set_target_properties(project_nekomata_Library PROPERTIES
+        CXX_STANDARD_REQUIRED ON
+        CXX_SCAN_FOR_MODULES ON
+        CXX_MODULE_STD ON
+)
 add_slang_shaders(project_nekomata_spv TARGET_DIR ${CMAKE_CURRENT_BINARY_DIR}/spirv SOURCES ${project_nekomata_SHADER_SOURCES})
 add_dependencies(project_nekomata_Library project_nekomata_spv)
 
@@ -316,6 +339,8 @@ foreach(BINARY_ENTRY ${project_nekomata_BINARIES})
                 -fvisibility=hidden
                 -fvisibility-inlines-hidden
                 -fno-semantic-interposition
+                -fenable-matrix
+                -fmatrix-memory-layout=column-major
 
                 -Wall
                 -Wextra
@@ -336,6 +361,12 @@ foreach(BINARY_ENTRY ${project_nekomata_BINARIES})
                 -Werror=overloaded-virtual
 
                 -Werror=tautological-compare
+        )
+        target_compile_features(${BINARY_ENTRY_NAME} PRIVATE cxx_std_26)
+        set_target_properties(${BINARY_ENTRY_NAME} PROPERTIES
+                CXX_STANDARD_REQUIRED ON
+                CXX_SCAN_FOR_MODULES ON
+                CXX_MODULE_STD ON
         )
 
         set(MANIFEST_FILE "$<TARGET_FILE_DIR:${BINARY_ENTRY_NAME}>/${BINARY_ENTRY_NAME}.manifest")

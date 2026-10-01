@@ -21,6 +21,7 @@ public:
     AtlasShelfPacker(i32 width, i32 height);
 
     Option<math::Vector2i> pack(i32 width, i32 height);
+    auto reset() -> void;
 
 private:
     struct Shelf {

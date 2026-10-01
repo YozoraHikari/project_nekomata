@@ -16,6 +16,8 @@ struct FrameResult {
 enum class FrameContextTimestampIndex {
     BeforeGeometryPass,
     AfterGeometryPass,
+    BeforeShadowsPass,
+    AfterShadowsPass,
     BeforeLightingPass,
     AfterLightingPass,
     BeforeBloomFilter,
@@ -36,7 +38,7 @@ public:
 
     auto waitForLastFrame() -> void;
 
-    [[nodiscard]] auto execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources,
+    [[nodiscard]] auto execute(RenderingResources& transientRenderingResources, SharedRenderingData& sharedRenderingResources,
         vkrhi::VulkanSwapchain& swapchain, MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult;
 
     // ---------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -46,9 +48,10 @@ public:
     vkrhi::VulkanQueryPool m_pipelineStatisticsQueryPool = nullptr;
     bool m_queryPoolsHaveResultsOnFinish = false;
     u64 m_numDrawcalls = 0;
+    u64 m_numDrawcallsShadows = 0;
 
 private:
-    FrameRenderingResources m_frameRenderingResources = nullptr;
+    FrameContextData m_frameRenderingResources = nullptr;
 };
 
 }

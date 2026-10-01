@@ -11,8 +11,22 @@ import :graphics.vulkan.vk_pipeline_compute;
 
 export namespace projnekomata::gfx {
 
-struct MeshHysteresisState {
-    u32 currentLod = kLodListMaxLodCount - 1;
+constexpr auto kShadowMapAtlasSize = math::Vector2i(4096, 4096);
+
+struct ShadowMapAtlas {
+    vkrhi::VulkanImage atlasImage;
+    AtlasShelfPacker atlasShelfPacker;
+    SRTResourceIndex atlasSrtIndex;
+};
+
+struct ShadowRenderingJob {
+    u32 shadowmapDescriptorIndex;
+    math::Matrix4x4f renderViewMatrix;
+    float renderFov;
+    float renderNearPlane;
+    float randerFarPlane;
+    math::Vector2i atlasViewportOffset;
+    math::Vector2i atlasViewportSize;
 };
 
 /// Shared rendering resources house data used across all render steps.
@@ -22,15 +36,16 @@ struct MeshHysteresisState {
 /// |----------------|-------------------------------|-----------------------------------|
 /// | Yes            | Shared                        | Shared                            |
 ///
-class SharedRenderingResources {
+class SharedRenderingData {
 public:
-    SharedRenderingResources(std::nullptr_t);
-    SharedRenderingResources();
+    SharedRenderingData(std::nullptr_t);
+    SharedRenderingData();
 
     auto checkGraphicsSettingsAndMaybeRecompileShaders() -> void;
     auto refitHysteresisStates(usize renderableSparseCount) -> void;
-    auto getHysteresisState(usize renderableSparseIndex) -> MeshHysteresisState& { return m_meshHysteresisStates[renderableSparseIndex]; }
     auto getLastRenderableModelMatrix(usize renderableSparseIndex) -> math::Matrix4x4f& { return m_lastRenderableModelMatrices[renderableSparseIndex]; }
+    auto shadowmapAtlases() -> Vec<ShadowMapAtlas>& { return m_shadowMapAtlases; }
+    auto shadowmapAtlasRenderingJobsPerAtlas() -> Vec<Vec<ShadowRenderingJob>>& { return m_shadowRenderingJobsPerAtlas; }
 
     bool smaaShaderNeedsRecompile = false;
 
@@ -43,6 +58,7 @@ public:
 
     Texture m_smaaAreaTexture = {};
     Texture m_smaaSearchTexture = {};
+    usize m_currShadowmapDescriptorCount = 0;
 
     vkrhi::VulkanPipelineLayout m_iblIrradianceCubeGeneratorLayout = nullptr;
     vkrhi::VulkanGraphicsPipeline m_iblIrradianceCubeGeneratorPipeline = nullptr;
@@ -89,16 +105,33 @@ public:
     vkrhi::VulkanPipelineLayout m_bloomUpsamplePipelineLayout = nullptr;
     vkrhi::VulkanComputePipeline m_bloomUpsamplePipeline = nullptr;
 
+    vkrhi::VulkanPipelineLayout m_lightShadowRenderingPipelineLayout = nullptr;
+    vkrhi::VulkanGraphicsPipeline m_lightShadowRenderingPipeline = nullptr;
+
     math::Matrix4x4f m_lastProjview = math::Matrix4x4f::identity();
     math::Matrix4x4f m_lastProjviewNoTranslation = math::Matrix4x4f::identity();
+
+    auto resetShadowmapAtlases() -> void;
+
+    struct ShadowmapAtlasAllocation {
+        u32 shadowmapAtlasIndex;
+        math::Vector2i texelOffset;
+    };
+    auto allocateShadowmapTile(math::Vector2i size) -> ShadowmapAtlasAllocation;
 
 private:
     u32 m_compiledSmaaPreset = 3;
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
-    // Hysteresis State
-    Vec<MeshHysteresisState> m_meshHysteresisStates = Vec<MeshHysteresisState>::create();
+    // Objects History
     Vec<math::Matrix4x4f> m_lastRenderableModelMatrices = Vec<math::Matrix4x4f>::create();
+
+    // --------------------------------------------------------------------------------------------------------------------------------------------------------
+    // Shadow Mapping Data
+
+
+    Vec<ShadowMapAtlas> m_shadowMapAtlases = Vec<ShadowMapAtlas>::create();
+    Vec<Vec<ShadowRenderingJob>> m_shadowRenderingJobsPerAtlas = Vec<Vec<ShadowRenderingJob>>::create();
 
     auto buildSmaaPipelines() -> void;
     auto buildIblSecondaryCubemaps() -> void;

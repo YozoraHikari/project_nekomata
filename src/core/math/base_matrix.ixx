@@ -9,8 +9,8 @@ export namespace projnekomata::math {
 
 template <typename T, usize R, usize C> class Matrix {
 public:
-    Matrix() = default;
-    Matrix(std::initializer_list<T> list) {
+    constexpr Matrix() = default;
+    constexpr Matrix(std::initializer_list<T> list) {
         debug_assert(list.size() == R * C, "The initializer list must have the same size as the matrix.");
 
         auto it = list.begin();
@@ -18,7 +18,7 @@ public:
             for (usize c = 0; c < C; c++)
                 mself(r, c) = *it++;
     }
-    explicit Matrix(T value) {
+    constexpr explicit Matrix(T value) {
         for (usize r = 0; r < R; r++)
             for (usize c = 0; c < C; c++)
                 mself(r, c) = value;
@@ -27,7 +27,7 @@ public:
     template <typename... Args>
         requires (sizeof...(Args) == R * C)
               && (std::is_convertible_v<Args, T> && ...)
-    explicit Matrix(Args&&... args) {
+    constexpr explicit Matrix(Args&&... args) {
         T flat[] = { static_cast<T>(std::forward<Args>(args))... };
         for (usize r = 0; r < R; r++)
             for (usize c = 0; c < C; c++)
@@ -79,6 +79,8 @@ public:
     constexpr friend auto operator*(const T& rhs, Matrix lhs) -> Matrix { return lhs *= rhs; }
     constexpr friend auto operator/(Matrix lhs, const T& rhs) -> Matrix { return lhs /= rhs; }
     constexpr friend auto operator/(const T& rhs, Matrix lhs) -> Matrix { return lhs /= rhs; }
+
+    constexpr friend auto operator-(Matrix lhs) -> Matrix { return lhs *= -1; }
 
     template <usize Nc>
     constexpr friend auto operator*(Matrix lhs, const Matrix<T, C, Nc>& rhs) -> Matrix<T, R, Nc> {
@@ -188,13 +190,28 @@ public:
         Matrix<T, 3, 1> transl = submatrix<3, 1>(0, 3);
 
         auto rotInverse = rotMat.transpose(); // for rotation matrices transposition is inversion
-        auto translInverse = rotInverse * transl * -1.0f;
+        auto translInverse = -rotInverse * transl;
 
         return {
             rotInverse[0, 0], rotInverse[0, 1], rotInverse[0, 2], translInverse[0, 0],
             rotInverse[1, 0], rotInverse[1, 1], rotInverse[1, 2], translInverse[1, 0],
             rotInverse[2, 0], rotInverse[2, 1], rotInverse[2, 2], translInverse[2, 0],
             T(0),             T(0),             T(0),             T(1)
+        };
+    }
+
+    [[nodiscard]] Matrix inverseAffine() const requires (C == 4 && R == 4) {
+        Matrix<T, 3, 3> rotAndScaleMat = submatrix<3, 3>(0, 0);
+        Matrix<T, 3, 1> transl = submatrix<3, 1>(0, 3);
+
+        auto rotAndScaleInverse = rotAndScaleMat.inverse();
+        auto translInverse = -rotAndScaleInverse * transl;
+
+        return {
+            rotAndScaleInverse[0, 0], rotAndScaleInverse[0, 1], rotAndScaleInverse[0, 2], translInverse[0, 0],
+            rotAndScaleInverse[1, 0], rotAndScaleInverse[1, 1], rotAndScaleInverse[1, 2], translInverse[1, 0],
+            rotAndScaleInverse[2, 0], rotAndScaleInverse[2, 1], rotAndScaleInverse[2, 2], translInverse[2, 0],
+            T(0),                     T(0),                     T(0),                     T(1)
         };
     }
 

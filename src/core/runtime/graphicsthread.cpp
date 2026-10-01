@@ -1,3 +1,5 @@
+module;
+#include <tracy/Tracy.hpp>
 module projnekomata;
 import fmt;
 import projnekomata.corelib;
@@ -23,7 +25,7 @@ auto RenderThread::runMainLoop() -> void {
     m_currentWindowExtent = m_vkSwapchain.imageExtent();
     // TODO : remove the abuse
     std::construct_at(&m_sharedRenderingResources);
-    m_transientRenderingResources = gfx::TransientRenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
+    m_transientRenderingResources = gfx::RenderingResources(m_currentWindowExtent, m_sharedRenderingResources);
     for (usize i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         m_frames[i] = gfx::FrameContext();
     }
@@ -42,6 +44,7 @@ auto RenderThread::runMainLoop() -> void {
         m_mrSharedData->m_statsReady.store(false, std::memory_order_release);
 
         m_mrSharedData->m_syncpointBarrier.arrive_and_wait();
+        FrameMark;
 
         loop();
     }
@@ -53,6 +56,7 @@ auto RenderThread::runMainLoop() -> void {
 
 
 auto RenderThread::loop() -> void {
+    ZoneScoped;
     if (!m_mrSharedData->m_leafs.getSecondary().m_hasValidFrame) return;
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -85,9 +89,13 @@ auto RenderThread::loop() -> void {
         m_transientRenderingResources.handleWindowSizeChange(m_currentWindowExtent);
     }
 
-    m_frames[m_currentFrameContextIndex].waitForLastFrame();
+    {
+        ZoneScopedNC("Wait: Pending Frame Release", tracy::Color::OrangeRed2);
+        m_frames[m_currentFrameContextIndex].waitForLastFrame();
+    }
 
     if (m_mrSharedData->m_leafs.getSecondary().m_captureStats) {
+        ZoneScopedNC("Wait: Statistics Capture", tracy::Color::Red3);
         bool hasStats = m_frames[m_currentFrameContextIndex].m_queryPoolsHaveResultsOnFinish;
         bool supportsPipelineStatisticsQuery = gfx::vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
         m_mrSharedData->m_queryPoolStatsAreValid = hasStats;
@@ -95,19 +103,25 @@ auto RenderThread::loop() -> void {
         if (hasStats) {
             auto timestampCount = static_cast<u32>(gfx::FrameContextTimestampIndex::CountDiscrim);
             gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_timestampsQueryPool.vkQueryPool().getResults(0, timestampCount, timestampCount * sizeof(u64), &m_mrSharedData->m_queryTimestamps, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
-            if (supportsPipelineStatisticsQuery) gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_pipelineStatisticsQueryPool.vkQueryPool().getResults(0, 1, 32, &m_mrSharedData->m_deferredGeometryPipelineStats, 8, vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
+            if (supportsPipelineStatisticsQuery) gfx::vkrhi::vkCheckResult(m_frames[m_currentFrameContextIndex].m_pipelineStatisticsQueryPool.vkQueryPool().getResults(0, 2, sizeof(QueryPipelineStats), &m_mrSharedData->m_queryPipelineStats, sizeof(PipelineStats), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait));
         }
 
         m_mrSharedData->m_deltaTime = m_sharedRenderingResources.displayMs;
         m_mrSharedData->m_numDrawcalls = m_frames[m_currentFrameContextIndex].m_numDrawcalls;
+        m_mrSharedData->m_numDrawcallsShadows = m_frames[m_currentFrameContextIndex].m_numDrawcallsShadows;
 
         m_mrSharedData->m_statsReady.store(true, std::memory_order_release);
         m_mrSharedData->m_statsReady.notify_one();
     }
 
     bool shouldCaptureStats = m_mrSharedData->m_leafs.getSecondary().m_captureStats;
-    auto result = m_frames[m_currentFrameContextIndex].execute(m_transientRenderingResources, m_sharedRenderingResources, m_vkSwapchain,
-                                                               m_mrSharedData->m_leafs.getSecondary(), *m_mrSharedData, shouldCaptureStats);
+    gfx::FrameResult result;
+    {
+        ZoneScopedN("Frame Execute");
+        result = m_frames[m_currentFrameContextIndex].execute(m_transientRenderingResources, m_sharedRenderingResources, m_vkSwapchain,
+                                                                   m_mrSharedData->m_leafs.getSecondary(), *m_mrSharedData, shouldCaptureStats);
+    }
+
     if (result.stepPerFrameResources)
         m_currentFrameContextIndex = (m_currentFrameContextIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 

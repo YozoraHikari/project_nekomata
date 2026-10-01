@@ -1,5 +1,6 @@
 module;
 #include <string.h>
+#include <tracy/Tracy.hpp>
 module projnekomata;
 import projnekomata.corelib;
 import vulkan;
@@ -25,14 +26,14 @@ using namespace projnekomata::math;
 
 FrameContext::FrameContext(std::nullptr_t) {  }
 FrameContext::FrameContext() {
-    m_frameRenderingResources = FrameRenderingResources(2048);
+    m_frameRenderingResources = FrameContextData(2048);
 
     m_timestampsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::eTimestamp, static_cast<u32>(FrameContextTimestampIndex::CountDiscrim), {});
 
     bool supportsPipelineStatisticsQuery = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
 
     if (supportsPipelineStatisticsQuery) {
-        m_pipelineStatisticsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::ePipelineStatistics, 1,
+        m_pipelineStatisticsQueryPool = vkrhi::VulkanQueryPool::create(vk::QueryType::ePipelineStatistics, 2,
             vk::QueryPipelineStatisticFlagBits::eVertexShaderInvocations
                 | vk::QueryPipelineStatisticFlagBits::eTessellationControlShaderPatches
                 | vk::QueryPipelineStatisticFlagBits::eTessellationEvaluationShaderInvocations
@@ -55,7 +56,7 @@ inline vk::Offset3D toOffset3D(const vk::Extent3D& extent) {
 
 inline bool isObjectVisible(
     Vector3f objectPos, float objectBoundingSphereRadius,
-    Matrix4x4f& cameraInverse,
+    const Matrix4x4f& cameraInverse,
     float perspectiveFov, float perspectiveAspectRatio, float perspectiveNear, float perspectiveFar
 ) {
     auto camspaceObjectPosHm = cameraInverse * Vector4f(objectPos.x(), objectPos.y(), objectPos.z(), 1.0f);
@@ -82,9 +83,16 @@ inline bool isObjectVisible(
 static auto& cvRdBloomRadius = CvarManager::get().registerCvar<float>("rd.bloomradius", 0.005f);
 static auto& cvRdBloomStrength = CvarManager::get().registerCvar<float>("rd.bloomstrength", 0.06f);
 
-auto FrameContext::execute(TransientRenderingResources& transientRenderingResources, SharedRenderingResources& sharedRenderingResources, vkrhi::VulkanSwapchain& swapchain,
+auto FrameContext::execute(RenderingResources& transientRenderingResources, SharedRenderingData& sharedRenderingResources, vkrhi::VulkanSwapchain& swapchain,
     MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult {
-    auto imageAcquire = swapchain.acquireNextImage(std::numeric_limits<u64>::max(), m_frameRenderingResources.imageAcquiredSemaphore());
+
+    std::pair<Option<u32>, bool> imageAcquire = { None, false };
+
+    {
+        ZoneScopedN("vkAcquireNextImageKHR")
+        imageAcquire = swapchain.acquireNextImage(std::numeric_limits<u64>::max(), m_frameRenderingResources.imageAcquiredSemaphore());
+    }
+
     bool supportsPipelineStatisticsQuery = vkrhi::VulkanContext::get().vkPhysicalDeviceProps().m_hasPipelineStatisticsQuery;
 
     bool shouldRecreateSwapchainAfter = imageAcquire.second;
@@ -95,6 +103,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     m_frameRenderingResources.frameDoneFence().reset();
     sharedRenderingResources.refitHysteresisStates(renderingData.m_renderables.m_sparseToStorage.size());
     m_numDrawcalls = 0;
+    m_numDrawcallsShadows = 0;
     m_queryPoolsHaveResultsOnFinish = recordStatistics;
 
     // ---------------------------------------------------------------- Render Pass starts here ----------------------------------------------------------------
@@ -136,7 +145,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     float aspectRatio = static_cast<float>(transientRenderingResources.postSmaaImage().extent().width) / static_cast<float>(transientRenderingResources.postSmaaImage().extent().height);
     float perspFocalLength = renderingArea.y() / (2.0f * std::tan(0.5f * degreesToRadians(firstCamera.fov)));
 
-    m_frameRenderingResources.prepareBuffers(renderingData, sharedRenderingResources, firstCamera, firstCameraTransform, aspectRatio, renderingData.m_frameIndex);
+    m_frameRenderingResources.prepareBuffers(renderingData, sharedRenderingResources, firstCamera, firstCameraTransform, aspectRatio, perspFocalLength, renderingData.m_frameIndex);
     auto& swapchainImage = swapchain.imageAtIndex(imageAcquire.first.unwrap());
 
     m_frameRenderingResources.commandPool().reset();
@@ -300,6 +309,15 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         )
         .flush(m_frameRenderingResources.commandBuffer());
 
+    for (auto& atlas : sharedRenderingResources.shadowmapAtlases()) {
+        vkrhi::VulkanPipelineBarriers::builder()
+            .insertImageMemoryBarrier(atlas.atlasImage,
+                vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
+                vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests, vk::AccessFlagBits2::eDepthStencilAttachmentWrite
+            )
+            .flush(m_frameRenderingResources.commandBuffer());
+    }
+
     if (recordStatistics) {
         cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeGeometryPass));
         if (supportsPipelineStatisticsQuery) cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0, {});
@@ -363,81 +381,58 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         vk::DeviceAddress textureToSamplerShaderIndexTableAddr;
     };
 
-    for (auto [i, renderable] : renderingData.m_renderables.m_storage.iter().enumerate()) {
-        // Get the LOD list for the renderable and skip it if no LODs are available
-        auto& lodList = MeshAssetStorage::get().getLodList(renderable.meshAsset);
-        auto bestAvailableLod = lodList.bestLodIndex.load(std::memory_order_acquire);
-        if (bestAvailableLod == ~0u) continue;
+    {
+        ZoneScopedN("GeomPass - Entities Cull and Record");
+        for (auto [i, renderable] : renderingData.m_renderables.m_storage.iter().enumerate()) {
+            // Get the LOD list for the renderable and skip it if no LODs are available
+            auto entity = renderingData.m_renderables.m_storageToEntity[i];
+            auto lodLevel = m_frameRenderingResources.getLodLevel(entity.index());
+            if (lodLevel == ~0u) continue;
 
-        // Copy its transforms addr to push constants
-        vk::DeviceAddress uboFinalAddr = uboDeviceAddr + i * sizeof(Transforms);
+            auto& lodList = MeshAssetStorage::get().getLodList(renderable.meshAsset);
 
-        // Pick an LOD
-        Vector3f objectPos = Vector3f(0.0f);
-        float objectUniformScale = 1.0f;
-        ecs::Entity ent = renderingData.m_renderables.m_storageToEntity[i];
-        if (renderingData.m_transforms.containsEntity(ent)) {
-            auto& transformMatrix = renderingData.m_transforms.get(ent).m_transform;
-            float sx = Vector3f(transformMatrix[0, 0], transformMatrix[1, 0], transformMatrix[2, 0]).length();
-            float sy = Vector3f(transformMatrix[0, 1], transformMatrix[1, 1], transformMatrix[2, 1]).length();
-            float sz = Vector3f(transformMatrix[0, 2], transformMatrix[1, 2], transformMatrix[2, 2]).length();
-            objectUniformScale = std::max({sx, sy, sz});
-            objectPos = transformMatrix.decomposePosition();
-        }
+            // Copy its transforms addr to push constants
+            vk::DeviceAddress uboFinalAddr = uboDeviceAddr + i * sizeof(Transforms);
 
-        // See if the object is visible
-        if (!isObjectVisible(objectPos, objectUniformScale * lodList.boundingSphereRadius, cameraViewMatrix, degreesToRadians(firstCamera.fov), aspectRatio, firstCamera.nearPlane, firstCamera.farPlane)) {
-            continue;
-        }
-
-        float screenPixels = lodList.computeScreenSpaceError(objectPos, cameraPos, perspFocalLength, objectUniformScale);
-
-        MeshHysteresisState& hysteresisState = sharedRenderingResources.getHysteresisState(ent.index());
-        // Hysteresis states can be reused between entity creations/destructions. This prevents possibly using an unavailable LOD.
-        hysteresisState.currentLod = std::clamp(hysteresisState.currentLod, bestAvailableLod, lodList.maxLodIndex);
-
-        while (hysteresisState.currentLod > bestAvailableLod) {
-            // must test next level LOD to see if satisfies new threshold
-            float upgradeScreenPixelsThreshold = lodList.lods[hysteresisState.currentLod - 1].screenSizeThreshold * lodList.lodHysteresisFactor;
-            if (screenPixels >= upgradeScreenPixelsThreshold) {
-                hysteresisState.currentLod--;
-                // log::info("Object {} upgraded to LOD level {}", ent.index(), hysteresisState.currentLod);
-            } else {
-                break;
+            // Pick an LOD
+            Vector3f objectPos = Vector3f(0.0f);
+            float objectUniformScale = 1.0f;
+            ecs::Entity ent = renderingData.m_renderables.m_storageToEntity[i];
+            if (renderingData.m_transforms.containsEntity(ent)) {
+                auto& transformMatrix = renderingData.m_transforms.get(ent).m_transform;
+                float sx = Vector3f(transformMatrix[0, 0], transformMatrix[1, 0], transformMatrix[2, 0]).length();
+                float sy = Vector3f(transformMatrix[0, 1], transformMatrix[1, 1], transformMatrix[2, 1]).length();
+                float sz = Vector3f(transformMatrix[0, 2], transformMatrix[1, 2], transformMatrix[2, 2]).length();
+                objectUniformScale = std::max({sx, sy, sz});
+                objectPos = transformMatrix.decomposePosition();
             }
-        }
 
-        while (hysteresisState.currentLod < lodList.maxLodIndex) {
-            // tests current level LOD to see if no longer satisfies current threshold
-            float downgradeScreenPixelsThreshold = lodList.lods[hysteresisState.currentLod].screenSizeThreshold / lodList.lodHysteresisFactor;
-            if (screenPixels < downgradeScreenPixelsThreshold) {
-                hysteresisState.currentLod++;
-                // log::info("Object {} downgraded to LOD level {}", ent.index(), hysteresisState.currentLod);
-            } else {
-                break;
+            // See if the object is visible
+            if (!isObjectVisible(objectPos, objectUniformScale * lodList.boundingSphereRadius, cameraViewMatrix, degreesToRadians(firstCamera.fov), aspectRatio, firstCamera.nearPlane, firstCamera.farPlane)) {
+                continue;
             }
+
+            auto& lod = lodList.lods[lodLevel];
+
+            auto vboDeviceAddr = lod.meshSuballocation.vertexBuffer.deviceAddress;
+            auto materialDataStride = renderable.material.shader->materialPropStructSize();
+            auto materialDataAddr = m_frameRenderingResources.materialPropBuffer(materialDataStride).memoryDevicePtr() + materialDataStride * renderable.material.properties.propertiesIndex;
+
+            auto pushconstData = RenderPushConstantData {
+                .objectUniformAddr = uboFinalAddr,
+                .vertexbufferAddr = vboDeviceAddr,
+                .globaldataAddr = globaldataAddr,
+                .materialDataAddr = materialDataAddr,
+                .textureToImageShaderIndexTableAddr = m_frameRenderingResources.textureToSrtImageIDBuffer().memoryDevicePtr(),
+                .textureToSamplerShaderIndexTableAddr = m_frameRenderingResources.textureToSrtSamplerIDBuffer().memoryDevicePtr()
+            };
+
+            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, renderable.material.shader->pipeline().vkPipeline());
+            cb.bindIndexBuffer(lod.meshSuballocation.indexBuffer.buffer, lod.meshSuballocation.indexBuffer.offset, vk::IndexType::eUint32);
+            cb.pushConstants<RenderPushConstantData>(globPipelineLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eAll, 0, pushconstData);
+            cb.drawIndexed(lod.meshSuballocation.indexBuffer.size / sizeof(u32), 1, 0, 0, 0);
+            m_numDrawcalls++;
         }
-
-        auto& lod = lodList.lods[hysteresisState.currentLod];
-
-        auto vboDeviceAddr = lod.meshSuballocation.vertexBuffer.deviceAddress;
-        auto materialDataStride = renderable.material.shader->materialPropStructSize();
-        auto materialDataAddr = m_frameRenderingResources.materialPropBuffer(materialDataStride).memoryDevicePtr() + materialDataStride * renderable.material.properties.propertiesIndex;
-
-        auto pushconstData = RenderPushConstantData {
-            .objectUniformAddr = uboFinalAddr,
-            .vertexbufferAddr = vboDeviceAddr,
-            .globaldataAddr = globaldataAddr,
-            .materialDataAddr = materialDataAddr,
-            .textureToImageShaderIndexTableAddr = m_frameRenderingResources.textureToSrtImageIDBuffer().memoryDevicePtr(),
-            .textureToSamplerShaderIndexTableAddr = m_frameRenderingResources.textureToSrtSamplerIDBuffer().memoryDevicePtr()
-        };
-
-        cb.bindPipeline(vk::PipelineBindPoint::eGraphics, renderable.material.shader->pipeline().vkPipeline());
-        cb.bindIndexBuffer(lod.meshSuballocation.indexBuffer.buffer, lod.meshSuballocation.indexBuffer.offset, vk::IndexType::eUint32);
-        cb.pushConstants<RenderPushConstantData>(globPipelineLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eAll, 0, pushconstData);
-        cb.drawIndexed(lod.meshSuballocation.indexBuffer.size / sizeof(u32), 1, 0, 0, 0);
-        m_numDrawcalls++;
     }
 
     cb.endRendering();
@@ -445,6 +440,124 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     if (recordStatistics) {
         cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterGeometryPass));
         if (supportsPipelineStatisticsQuery) cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0);
+
+        // TODO: rework the queries maybe a bit to not do this obnoxious thing?????
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeShadowsPass));
+        if (supportsPipelineStatisticsQuery) cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 1);
+    }
+
+    // ---- Shadow Maps Stage ----------------------------------------------------------------------------------------------------------------------------------
+
+    for (auto [i, shadowAtlasRenderingJobs] : sharedRenderingResources.shadowmapAtlasRenderingJobsPerAtlas().iter().enumerate()) {
+        auto depthAttachmentInfo = vk::RenderingAttachmentInfo{}
+            .setImageView(sharedRenderingResources.shadowmapAtlases()[i].atlasImage.vkImageViewWholeSize())
+            .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setLoadOp(vk::AttachmentLoadOp::eClear)
+            .setStoreOp(vk::AttachmentStoreOp::eStore)
+            .setClearValue(vk::ClearDepthStencilValue{}.setDepth(0.0f));
+
+        auto renderArea = vk::Rect2D{}
+            .setExtent({ sharedRenderingResources.shadowmapAtlases()[i].atlasImage.extent().width, sharedRenderingResources.shadowmapAtlases()[i].atlasImage.extent().height });
+
+        auto renderingInfo = vk::RenderingInfo{}
+            .setPDepthAttachment(&depthAttachmentInfo)
+            .setLayerCount(1)
+            .setRenderArea(renderArea);
+
+        cb.beginRendering(renderingInfo);
+
+        for (auto& shadowAtlasRenderingJob : shadowAtlasRenderingJobs) {
+            auto viewport = vk::Viewport{}
+                .setX(shadowAtlasRenderingJob.atlasViewportOffset.x())
+                .setY(shadowAtlasRenderingJob.atlasViewportOffset.y())
+                .setWidth(shadowAtlasRenderingJob.atlasViewportSize.x())
+                .setHeight(shadowAtlasRenderingJob.atlasViewportSize.y())
+                .setMinDepth(0.0f)
+                .setMaxDepth(1.0f);
+            auto scissor = vk::Rect2D{}
+                .setOffset({ static_cast<i32>(shadowAtlasRenderingJob.atlasViewportOffset.x()), static_cast<i32>(shadowAtlasRenderingJob.atlasViewportOffset.y()) })
+                .setExtent({ static_cast<u32>(shadowAtlasRenderingJob.atlasViewportSize.x()), static_cast<u32>(shadowAtlasRenderingJob.atlasViewportSize.y()) });
+
+            cb.setViewport(0, viewport);
+            cb.setScissor(0, scissor);
+            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, sharedRenderingResources.m_lightShadowRenderingPipeline.vkPipeline());
+
+
+            struct RenderDepthOnlyPushConstantData {
+                vk::DeviceAddress objectUniformAddr;
+                vk::DeviceAddress shadowmapDescriptorAddr;
+                vk::DeviceAddress vertexbufferAddr;
+                vk::DeviceAddress globaldataAddr;
+            };
+
+            auto shadowmapDescriptorAddr = m_frameRenderingResources.shadowmapDescriptorBuffer().memoryDevicePtr() + shadowAtlasRenderingJob.shadowmapDescriptorIndex * sizeof(ShadowmapDescriptor);
+
+            {
+                ZoneScopedN("ShadowPass Job - Entities Cull and Record");
+                for (auto [i, renderable] : renderingData.m_renderables.m_storage.iter().enumerate()) {
+                    auto entity = renderingData.m_renderables.m_storageToEntity[i];
+                    auto lodLevel = m_frameRenderingResources.getLodLevel(entity.index());
+                    if (lodLevel == ~0u) continue;
+
+                    auto& lodList = MeshAssetStorage::get().getLodList(renderable.meshAsset);
+
+                    // Copy its transforms addr to push constants
+                    vk::DeviceAddress uboFinalAddr = uboDeviceAddr + i * sizeof(Transforms);
+
+                    // Pick an LOD
+                    Vector3f objectPos = Vector3f(0.0f);
+                    float objectUniformScale = 1.0f;
+                    ecs::Entity ent = renderingData.m_renderables.m_storageToEntity[i];
+                    if (renderingData.m_transforms.containsEntity(ent)) {
+                        auto& transformMatrix = renderingData.m_transforms.get(ent).m_transform;
+                        float sx = Vector3f(transformMatrix[0, 0], transformMatrix[1, 0], transformMatrix[2, 0]).length();
+                        float sy = Vector3f(transformMatrix[0, 1], transformMatrix[1, 1], transformMatrix[2, 1]).length();
+                        float sz = Vector3f(transformMatrix[0, 2], transformMatrix[1, 2], transformMatrix[2, 2]).length();
+                        objectUniformScale = std::max({sx, sy, sz});
+                        objectPos = transformMatrix.decomposePosition();
+                    }
+
+                    float aspectRatio = static_cast<float>(shadowAtlasRenderingJob.atlasViewportSize.x()) / static_cast<float>(shadowAtlasRenderingJob.atlasViewportSize.y());
+
+                    if (!isObjectVisible(objectPos, objectUniformScale * lodList.boundingSphereRadius, shadowAtlasRenderingJob.renderViewMatrix, shadowAtlasRenderingJob.renderFov, aspectRatio, shadowAtlasRenderingJob.renderNearPlane, shadowAtlasRenderingJob.randerFarPlane)) {
+                        continue;
+                    }
+
+                    auto& lod = lodList.lods[lodLevel];
+
+                    auto vboDeviceAddr = lod.meshSuballocation.vertexBuffer.deviceAddress;
+
+                    auto pushConstants = RenderDepthOnlyPushConstantData {
+                        .objectUniformAddr = uboFinalAddr,
+                        .shadowmapDescriptorAddr = shadowmapDescriptorAddr,
+                        .vertexbufferAddr = vboDeviceAddr,
+                        .globaldataAddr = m_frameRenderingResources.globalDataBuffer().memoryDevicePtr()
+                    };
+
+                    cb.bindIndexBuffer(lod.meshSuballocation.indexBuffer.buffer, lod.meshSuballocation.indexBuffer.offset, vk::IndexType::eUint32);
+                    cb.pushConstants<RenderDepthOnlyPushConstantData>(globPipelineLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eAll, 0, pushConstants);
+                    cb.drawIndexed(lod.meshSuballocation.indexBuffer.size / sizeof(u32), 1, 0, 0, 0);
+                    m_numDrawcallsShadows++;
+                }
+            }
+
+        }
+
+        cb.endRendering();
+    }
+
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterShadowsPass));
+        if (supportsPipelineStatisticsQuery) cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 1);
+    }
+
+    for (auto& atlas : sharedRenderingResources.shadowmapAtlases()) {
+        vkrhi::VulkanPipelineBarriers::builder()
+            .insertImageMemoryBarrier(atlas.atlasImage,
+                vk::ImageLayout::eDepthStencilAttachmentOptimal, vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests, vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+                vk::ImageLayout::eShaderReadOnlyOptimal, vk::PipelineStageFlagBits2::eFragmentShader, vk::AccessFlagBits2::eShaderSampledRead
+            )
+            .flush(m_frameRenderingResources.commandBuffer());
     }
 
     // ---- Deferred Lighting Stage ----------------------------------------------------------------------------------------------------------------------------
@@ -526,6 +639,9 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
         vk::DeviceAddress globaldataAddr;
         vk::DeviceAddress pointlightsAddr;
         u32 pointlightCount;
+        vk::DeviceAddress spotlightsAddr;
+        u32 spotlightCount;
+        vk::DeviceAddress shadowmapDescriptorsAddr;
         u32 depthTextureIndex;
         u32 albedoAndRoughnessTextureIndex;
         u32 emissiveTextureIndex;
@@ -540,20 +656,23 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
     };
 
     auto pushconstData = LightingStagePushConstantData {
-        .globaldataAddr = globaldataAddr,
-        .pointlightsAddr = m_frameRenderingResources.pointlightsBuffer().memoryDevicePtr(),
-        .pointlightCount = static_cast<u32>(renderingData.m_pointlights.m_storage.len()),
-        .depthTextureIndex = transientRenderingResources.depthBufferIndex().imageIndex,
-        .albedoAndRoughnessTextureIndex = transientRenderingResources.albedoAndRoughnessBufferIndex().imageIndex,
-        .emissiveTextureIndex = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(0).imageIndex,
-        .normalTextureIndex = transientRenderingResources.normalBufferIndex().imageIndex,
-        .metallicAoTextureIndex = transientRenderingResources.metallicAndAoBufferIndex().imageIndex,
-        .skyboxTextureId = skyboxTextureId,
-        .irradianceTextureId = irradianceTextureId,
-        .prefiltTextureId = prefilterTextureId,
-        .iblLutTextureId = iblLutTextureId,
-        .linearSamplerIndex = linearSamplerId,
-        .nearestSamplerIndex = nearestSamplerId
+        .globaldataAddr                  = globaldataAddr,
+        .pointlightsAddr                 = m_frameRenderingResources.pointlightsBuffer().memoryDevicePtr(),
+        .pointlightCount                 = static_cast<u32>(m_frameRenderingResources.pointlightsCount()),
+        .spotlightsAddr                  = m_frameRenderingResources.spotlightsBuffer().memoryDevicePtr(),
+        .spotlightCount                  = static_cast<u32>(m_frameRenderingResources.spotlightsCount()),
+        .shadowmapDescriptorsAddr        = m_frameRenderingResources.shadowmapDescriptorBuffer().memoryDevicePtr(),
+        .depthTextureIndex               = transientRenderingResources.depthBufferIndex().imageIndex,
+        .albedoAndRoughnessTextureIndex  = transientRenderingResources.albedoAndRoughnessBufferIndex().imageIndex,
+        .emissiveTextureIndex            = transientRenderingResources.emissiveAndBloomBufferSampledImageIndexForMip(0).imageIndex,
+        .normalTextureIndex              = transientRenderingResources.normalBufferIndex().imageIndex,
+        .metallicAoTextureIndex          = transientRenderingResources.metallicAndAoBufferIndex().imageIndex,
+        .skyboxTextureId                 = skyboxTextureId,
+        .irradianceTextureId             = irradianceTextureId,
+        .prefiltTextureId                = prefilterTextureId,
+        .iblLutTextureId                 = iblLutTextureId,
+        .linearSamplerIndex              = linearSamplerId,
+        .nearestSamplerIndex             = nearestSamplerId
     };
 
     cb.pushConstants<LightingStagePushConstantData>(sharedRenderingResources.m_mainLightingPassLayout.vkPipelineLayout(), vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, 0, pushconstData);
@@ -1143,7 +1262,7 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
                 };
 
                 PushConstants pushConstants = {
-                    .instanceBuffer = buffer.memoryDevicePtr(),
+                    .instanceBuffer = textInstanceBuffers.last().memoryDevicePtr(),
                     .ssGlobalOffset = drawCmd.ssPosition.round(),
                     .screenSize = renderingArea,
                     .samplerSrtID = sampler2,
@@ -1213,16 +1332,26 @@ auto FrameContext::execute(TransientRenderingResources& transientRenderingResour
 
     vkrhi::vkCheckResult(cb.end());
 
-    vkrhi::VulkanContext::get().vkQueueGraphics().submitOneCommandBufferWithBinarySemaphores(
-        cb,
-        {}, {},
-        m_frameRenderingResources.imageAcquiredSemaphore(), swapchainImage.vkSemaphoreImagePresent(),
-        vk::PipelineStageFlagBits2::eBlit, vk::PipelineStageFlagBits2::eBlit,
-        Some(std::ref(m_frameRenderingResources.frameDoneFence()))
-    );
+    {
+        ZoneScopedN("CB Submit")
+        vkrhi::VulkanContext::get().vkQueueGraphics().submitOneCommandBufferWithBinarySemaphores(
+            cb,
+            {}, {},
+            m_frameRenderingResources.imageAcquiredSemaphore(), swapchainImage.vkSemaphoreImagePresent(),
+            vk::PipelineStageFlagBits2::eBlit, vk::PipelineStageFlagBits2::eBlit,
+            Some(std::ref(m_frameRenderingResources.frameDoneFence()))
+        );
+    }
 
-    vkrhi::VulkanContext::get().antiLagPacePresent(renderingData.m_frameIndex, 0);
-    auto presentResult = vkrhi::VulkanContext::get().vkQueuePresent().submitPresent(swapchain, swapchainImage.vkSemaphoreImagePresent(), imageAcquire.first.unwrap());
+    {
+        ZoneScopedN("AntiLag Present Pace")
+        vkrhi::VulkanContext::get().antiLagPacePresent(renderingData.m_frameIndex, 0);
+    }
+    vk::Result presentResult;
+    {
+        ZoneScopedN("Present");
+        presentResult = vkrhi::VulkanContext::get().vkQueuePresent().submitPresent(swapchain, swapchainImage.vkSemaphoreImagePresent(), imageAcquire.first.unwrap());
+    }
 
     if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
         return { .shouldRecreateSwapchain = true, .stepPerFrameResources = true };

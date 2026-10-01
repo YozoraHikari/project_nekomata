@@ -21,7 +21,7 @@ struct MRThreadsSharedDataLeaf {
     // ---- ECS Components -------------------------------------------------------------------------------------------------------------------------------------
 
     ecs::ComponentSetSnapshot<RenderableComponent> m_renderables;
-    ecs::ComponentSetSnapshot<PointlightComponent> m_pointlights;
+    ecs::ComponentSetSnapshot<LightComponent> m_lights;
     ecs::ComponentSetSnapshot<WorldTransformComponent> m_transforms;
     ecs::ComponentSetSnapshot<CameraComponent> m_cameras;
 
@@ -49,6 +49,8 @@ struct MRThreadsSharedDataLeaf {
 struct QueryTimestamps {
     u64 beforeGeometryPass;
     u64 afterGeometryPass;
+    u64 beforeShadowsPass;
+    u64 afterShadowsPass;
     u64 beforeLightingPass;
     u64 afterLightingPass;
     u64 beforeBloomFilter;
@@ -59,6 +61,18 @@ struct QueryTimestamps {
     u64 afterSmaa;
     u64 beforeUI;
     u64 afterUI;
+};
+
+struct PipelineStats {
+    u64 vsInvocationCount;
+    u64 fsInvocationCount;
+    u64 tcsInvocationCount;
+    u64 tesInvocationCount;
+};
+
+struct QueryPipelineStats {
+    PipelineStats deferredGeometryStage;
+    PipelineStats shadowPassStage;
 };
 
 class MRThreadsSharedData {
@@ -78,9 +92,10 @@ public:
     gfx::DynamicBitmapFontAtlas m_fontAtlas;
 
     QueryTimestamps m_queryTimestamps;
-    u64 m_deferredGeometryPipelineStats[4];
+    QueryPipelineStats m_queryPipelineStats;
     f32 m_deltaTime;
     u32 m_numDrawcalls;
+    u32 m_numDrawcallsShadows;
 
     bool m_queryPoolStatsAreValid = false;
     std::atomic<bool> m_statsReady = false;

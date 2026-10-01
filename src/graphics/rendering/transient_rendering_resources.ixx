@@ -14,11 +14,11 @@ export namespace projnekomata::gfx {
 /// |----------------|-------------------------------|-----------------------------------|
 /// | No             | Exclusive                     | Shared                            |
 ///
-class TransientRenderingResources {
+class RenderingResources {
 public:
-    TransientRenderingResources(std::nullptr_t);
+    RenderingResources(std::nullptr_t);
 
-    TransientRenderingResources(vk::Extent2D renderImageExtent, SharedRenderingResources& sharedResources);
+    RenderingResources(vk::Extent2D renderImageExtent, SharedRenderingData& sharedResources);
 
     [[nodiscard]] vkrhi::VulkanImage& depthBuffer() { return m_depthBuffer; }
     [[nodiscard]] vkrhi::VulkanImage& albedoAndRoughnessBuffer() { return m_albedoAndRoughnessBuffer; }

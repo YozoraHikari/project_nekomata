@@ -16,7 +16,17 @@ export class Mem {
 public:
     // ---- Allocation -----------------------------------------------------------------------------------------------------------------------------------------
     template <typename T> static auto alloc(usize len) -> T* { return static_cast<T*>(::malloc(len * sizeof(T))); }
-    template <typename T> static auto allocAligned(usize len, usize alignment) -> T* { return static_cast<T*>(::aligned_alloc(alignment, len * sizeof(T))); }
+    template <typename T> static auto allocAligned(usize len, usize alignment) -> T* {
+#if defined(__linux__)
+        void* ptr;
+        if (posix_memalign(&ptr, alignment, len * sizeof(T)) != 0) {
+            return nullptr;
+        }
+        return static_cast<T*>(ptr);
+#elif defined(_WIN32)
+        return static_cast<T*>(_aligned_malloc(len * sizeof(T), alignment));
+#endif
+    }
     template <typename T> static auto realloc(T* ptr, usize len) -> T* { return static_cast<T*>(::realloc(static_cast<void*>(ptr), len * sizeof(T))); }
 
     // ---- Ensured Allocation ---------------------------------------------------------------------------------------------------------------------------------
@@ -75,5 +85,11 @@ public:
 
     // ---- Freeing --------------------------------------------------------------------------------------------------------------------------------------------
     template <typename T> static auto free(T* ptr) -> void { ::free(static_cast<void*>(ptr)); }
-    template <typename T> static auto freeAligned(T* ptr) -> void { ::free(static_cast<void*>(ptr)); }
+    template <typename T> static auto freeAligned(T* ptr) -> void {
+#if defined(__linux__)
+        ::free(static_cast<void*>(ptr));
+#elif defined(_WIN32)
+        _aligned_free(static_cast<void*>(ptr));
+#endif
+    }
 };

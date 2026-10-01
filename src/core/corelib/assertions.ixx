@@ -1,6 +1,14 @@
 export module projnekomata.corelib:assertions;
 import :panic;
 
+export constexpr void always_assert(const bool& condition, std::string_view message, std::source_location loc = std::source_location::current()) {
+    if (!condition) {
+        panic("assertion failed at {}:{}: {}", loc.file_name(), loc.line(), message);
+    }
+
+    __builtin_assume(condition);
+}
+
 export constexpr void debug_assert(const bool& condition, std::string_view message, std::source_location loc = std::source_location::current()) {
 #ifdef NDEBUG
     __builtin_assume(condition);

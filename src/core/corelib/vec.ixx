@@ -128,9 +128,9 @@ public:
 
     // ---- Access ---------------------------------------------------------------------------------------------------------------------------------------------
 
-    constexpr auto len() const noexcept -> usize { return m_len; }
-    constexpr auto size() const noexcept -> usize { return m_len; }
-    constexpr auto capacity() const noexcept -> usize { return m_capacity; }
+    [[clang::always_inline]] constexpr auto len() const noexcept -> usize { return m_len; }
+    [[clang::always_inline]] constexpr auto size() const noexcept -> usize { return m_len; }
+    [[clang::always_inline]] constexpr auto capacity() const noexcept -> usize { return m_capacity; }
 
     constexpr auto data() noexcept -> T* { return m_data; }
     constexpr auto begin() noexcept -> T* { return m_data; }
@@ -140,7 +140,7 @@ public:
     constexpr auto begin() const noexcept -> const T* { return m_data; }
     constexpr auto end() const noexcept -> const T* { return m_data + m_len; }
 
-    constexpr T& operator[](usize index) noexcept {
+    [[clang::always_inline]] constexpr T& operator[](usize index) noexcept {
 #ifndef NDEBUG
         if (index >= m_len) {
             panic("attempted to access index {} but len is {}", index, m_len);
@@ -148,7 +148,7 @@ public:
 #endif
         return m_data[index];
     }
-    constexpr const T& operator[](usize index) const noexcept {
+    [[clang::always_inline]] constexpr const T& operator[](usize index) const noexcept {
 #ifndef NDEBUG
         if (index >= m_len) {
             panic("attempted to access index {} but len is {}", index, m_len);

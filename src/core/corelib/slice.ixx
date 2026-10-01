@@ -42,20 +42,20 @@ public:
     constexpr Slice() noexcept : m_ptr(nullptr), m_len(0) {}
     constexpr Slice(T* ptr, usize len) noexcept : m_ptr(ptr), m_len(len) {}
 
-    constexpr auto data() const noexcept -> T* { return m_ptr; }
-    constexpr auto begin() const noexcept -> const T* { return m_ptr; }
-    constexpr auto end() const noexcept -> const T* { return m_ptr + m_len; }
-    constexpr auto len() const noexcept -> usize { return m_len; }
-    constexpr auto size() const noexcept -> usize { return m_len; }
+    [[clang::always_inline]] constexpr auto data() const noexcept -> T* { return m_ptr; }
+    [[clang::always_inline]] constexpr auto begin() const noexcept -> const T* { return m_ptr; }
+    [[clang::always_inline]] constexpr auto end() const noexcept -> const T* { return m_ptr + m_len; }
+    [[clang::always_inline]] constexpr auto len() const noexcept -> usize { return m_len; }
+    [[clang::always_inline]] constexpr auto size() const noexcept -> usize { return m_len; }
 
-    constexpr T& first() noexcept { return m_ptr[0]; }
-    constexpr const T& first() const noexcept { return m_ptr[0]; }
-    constexpr T& last() noexcept { return m_ptr[m_len - 1]; }
-    constexpr const T& last() const noexcept { return m_ptr[m_len - 1]; }
+    [[clang::always_inline]] constexpr T& first() noexcept { return m_ptr[0]; }
+    [[clang::always_inline]] constexpr const T& first() const noexcept { return m_ptr[0]; }
+    [[clang::always_inline]] constexpr T& last() noexcept { return m_ptr[m_len - 1]; }
+    [[clang::always_inline]] constexpr const T& last() const noexcept { return m_ptr[m_len - 1]; }
 
-    constexpr auto operator[](usize index) const noexcept -> T& { return m_ptr[index]; }
+    [[clang::always_inline]] constexpr auto operator[](usize index) const noexcept -> T& { return m_ptr[index]; }
 
-    constexpr auto isEmpty() const noexcept -> bool { return m_len == 0; }
+    [[clang::always_inline]] constexpr auto isEmpty() const noexcept -> bool { return m_len == 0; }
 
     constexpr auto iter() const noexcept -> SliceIter<T> { return SliceIter<T>(m_ptr, m_ptr + m_len); }
     constexpr auto iterRev() const noexcept -> ReverseSliceIter<T> { return ReverseSliceIter<T>(m_ptr + m_len - 1, m_ptr - 1); }

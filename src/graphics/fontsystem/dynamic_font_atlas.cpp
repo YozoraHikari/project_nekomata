@@ -40,4 +40,7 @@ Option<math::Vector2i> AtlasShelfPacker::pack(i32 width, i32 height) {
     return None;
 }
 
+auto AtlasShelfPacker::reset() -> void {
+    m_shelves.clear();
+}
 } // namespace projnekomata

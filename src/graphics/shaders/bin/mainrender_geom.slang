@@ -67,7 +67,7 @@ VSOut main(uint vertexID: SV_VulkanVertexID) {
     VSOut output;
     output.position = mul(s_pushConstants.globalData.jitteredProjview, currentWorldspacePos);
     output.mvCurrentPosition = mul(s_pushConstants.globalData.projview, currentWorldspacePos);
-    output.mvPrevPosition = mul(s_pushConstants.globalData.projview, prevWorldspacePos);
+    output.mvPrevPosition = mul(s_pushConstants.globalData.prevProjview, prevWorldspacePos);
     output.uv = texcoord;
     output.normal = mul(s_pushConstants.data.normalMatrix, normal);
     output.tangent = mul(float3x3(s_pushConstants.data.model), tangent.xyz);

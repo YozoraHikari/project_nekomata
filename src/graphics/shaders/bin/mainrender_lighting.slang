@@ -4,12 +4,99 @@ import "../normalpack/normalpack";
 struct Pointlight {
     float3 position;
     float3 lightRadiance;
+
+    float inverseRangeSq;
+
+    uint shadowmapAtlasImageSrtIndices[6];
+    uint shadowmapDescriptorIndexFirst;
 };
+
+struct Spotlight {
+    float3 position;
+    float3 lightRadiance;
+    float3 direction;
+
+    float cosOuterAngle;
+
+    float inverseRangeSq;
+    float inverseAngleRange;
+
+    uint shadowmapAtlasImageSrtIndex;
+    uint shadowmapDescriptorIndex;
+};
+
+struct ShadowmapDescriptor {
+    float4x4 lightProjview;
+    float2 atlasOffset;
+    float2 atlasRectSize;
+};
+
+float lightAttenuationDistance(float distanceSq, float inverseRangeSq) {
+    float factor = distanceSq * inverseRangeSq;
+    float fact = saturate(1.0f - factor * factor);
+    return (fact * fact) / max(distanceSq, 1e-4f);
+}
+
+float lightAttenuationSpotlightCone(float3 l, float3 lightDir, float lightCosOuterAngle, float lightInverseAngleRange) {
+    float cosAngle = dot(-l, lightDir);
+    float t = saturate((cosAngle - lightCosOuterAngle) * lightInverseAngleRange);
+    return smoothstep(0.0f, 1.0f, t);
+}
+
+float lightAttenuationSpotlightShadow(float3 fragpos, uint shadowmapAtlasImageSrtIndex, uint shadowmapDescriptorIndex) {
+    if (shadowmapAtlasImageSrtIndex == ~0u) return 1.0f;
+
+    let shadowmapDesc = s_pushConstants.shadowmapDescriptors[shadowmapDescriptorIndex];
+    let lightNdcPos = mul(shadowmapDesc.lightProjview, float4(fragpos, 1.0f));
+    let lightNdcPosN = lightNdcPos.xyz / lightNdcPos.w;
+    let lightNdcPosNz = lightNdcPosN.z;
+
+    let tileTexcoord = lightNdcPosN.xy * 0.5f + 0.5f;
+
+    if (tileTexcoord.x < 0.0f || tileTexcoord.x > 1.0f || tileTexcoord.y < 0.0f || tileTexcoord.y > 1.0f) return 1.0f;
+
+    let shadowmapTexcoord = shadowmapDesc.atlasOffset + shadowmapDesc.atlasRectSize * tileTexcoord;
+
+    let shadowmapDepth = s_textures2D[shadowmapAtlasImageSrtIndex].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], shadowmapTexcoord, 0.0f).r;
+
+    return lightNdcPosNz <= shadowmapDepth ? 0.0f : 1.0f;
+}
+
+float lightAttenuationPointlightShadow(float3 l, float3 fragpos, in Pointlight light) {
+    if (light.shadowmapAtlasImageSrtIndices[0] == ~0u) return 1.0f;
+
+    float3 a = abs(l);
+
+    uint cubeAxis = (a.x >= a.y && a.x >= a.z) ? 0
+        : (a.y >= a.z) ? 1
+        : 2;
+
+    uint cubeDirection = (l[cubeAxis] > 0.0f) ? 0 : 1;
+
+    uint cubeFace = 2 * cubeAxis + cubeDirection;
+
+    let imageSrtIndex = light.shadowmapAtlasImageSrtIndices[cubeFace];
+    let shadowmapDescriptor = s_pushConstants.shadowmapDescriptors[light.shadowmapDescriptorIndexFirst + cubeFace];
+
+    let lightNdcPos = mul(shadowmapDescriptor.lightProjview, float4(fragpos, 1.0f));
+    let lightNdcPosN = lightNdcPos.xyz / lightNdcPos.w;
+    let tileTexcoord = lightNdcPosN.xy * 0.5f + 0.5f;
+
+    if (tileTexcoord.x < 0.0f || tileTexcoord.x > 1.0f || tileTexcoord.y < 0.0f || tileTexcoord.y > 1.0f) return 1.0f;
+
+    let shadowmapTexcoord = shadowmapDescriptor.atlasOffset + shadowmapDescriptor.atlasRectSize * tileTexcoord;
+    let shadowmapDepth = s_textures2D[NonUniformResourceIndex(imageSrtIndex)].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], shadowmapTexcoord, 0.0f).r;
+
+    return lightNdcPosN.z <= shadowmapDepth ? 0.0f : 1.0f;
+}
 
 struct PushConstants {
     projnekomata::ShGlobalData* globalData;
     Pointlight* pointlights;
     uint pointlightCount;
+    Spotlight* spotlights;
+    uint spotlightCount;
+    ShadowmapDescriptor* shadowmapDescriptors;
     uint depthTextureSrtID;
     uint albedoAndRoughnessTextureSrtID;
     uint emissiveTextureSrtID;
@@ -48,15 +135,15 @@ VSOut main(uint vertexId : SV_VulkanVertexID) {
 
 float3 reconstructPositionWS(float2 ndc, float depth) {
     float4 positionSS = float4(ndc, depth, 1.0);
-    float4 positionWS = mul(s_pushConstants.globalData.projviewInverse, positionSS);
+    float4 positionWS = mul(s_pushConstants.globalData.jitteredProjviewInverse, positionSS);
     return positionWS.xyz / positionWS.w;
 }
 
 float3 reconstructViewdir(float2 ndc) {
-    const float near = 0.0001;
+    const float near = 0.001;
 
     float4 nearClip = float4(ndc, near, 1.0);
-    float4 worldNear = mul(s_pushConstants.globalData.projviewInverse, nearClip);
+    float4 worldNear = mul(s_pushConstants.globalData.jitteredProjviewInverse, nearClip);
 
     worldNear.xyz /= worldNear.w;
 
@@ -133,24 +220,60 @@ const static float roughnessMaxLod = 6.0f;
 float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm, float3 albedo, float3 emissive, float metallic, float roughness, float ao) {
     float3 viewdir = normalize(s_pushConstants.globalData.cameraPos - fragmentPosWS);
     float3 accum = float3(0.0);
+    float3 fragmentPosWSBiased = fragmentPosWS + 0.005f * norm;
 
-    // ---- The static pointlights
+    // ---- Pointlights ----------------------------------------------------------------------------------------------------------------------------------------
     for (uint i = 0; i < s_pushConstants.pointlightCount; i++) {
         let light = s_pushConstants.pointlights[i];
         float3 lz = light.position - fragmentPosWS;
         float3 l = normalize(lz);
         float ngl = dot(geometricNorm, l);
         float lighthorizon = clamp(ngl / 0.1f, 0.0f, 1.0f);
-        float3 ld = length(lz);
-        float3 radiance = light.lightRadiance / (ld * ld);
+        float ld = length(lz);
+        float ld2 = ld * ld;
+
+        float attenuationDist = lightAttenuationDistance(ld2, light.inverseRangeSq);
+        if (attenuationDist < 1e-4) continue;
+
+        float attenuationShadow = lightAttenuationPointlightShadow(l, fragmentPosWSBiased, light);
+        if (attenuationShadow < 1e-4) continue;
+
+        float3 radiance = light.lightRadiance * attenuationDist * attenuationShadow;
+
         accum += computeLightContribution(norm, viewdir, l, radiance, albedo, metallic, roughness) * lighthorizon;
     }
 
-    // ---- Diffuse IBL ------------------------------------------------------------------------------------------------
+    // ---- Spotlights -----------------------------------------------------------------------------------------------------------------------------------------
+    for (uint i = 0; i < s_pushConstants.spotlightCount; i++) {
+        let light = s_pushConstants.spotlights[i];
+        float3 lz = light.position - fragmentPosWS;
+        float3 l = normalize(lz);
+
+        float ngl = dot(geometricNorm, l);
+        float lighthorizon = clamp(ngl / 0.1f, 0.0f, 1.0f);
+
+        float ld = length(lz);
+        float ld2 = ld * ld;
+
+        float attenuationDist = lightAttenuationDistance(ld2, light.inverseRangeSq);
+        if (attenuationDist < 1e-4) continue;
+
+        float attenuationCone = lightAttenuationSpotlightCone(l, light.direction, light.cosOuterAngle, light.inverseAngleRange);
+        if (attenuationCone < 1e-4) continue;
+
+        float attenuationShadow = lightAttenuationSpotlightShadow(fragmentPosWSBiased, light.shadowmapAtlasImageSrtIndex, light.shadowmapDescriptorIndex);
+        if (attenuationShadow < 1e-4) continue;
+
+        float3 radiance = attenuationCone * attenuationDist * light.lightRadiance * attenuationShadow;
+
+        accum += computeLightContribution(norm, viewdir, l, radiance, albedo, metallic, roughness) * lighthorizon;
+    }
+
+    // ---- Diffuse IBL ----------------------------------------------------------------------------------------------------------------------------------------
     float3 irradiance = s_texturesCube[s_pushConstants.irradianceTextureSrtID].Sample(s_samplers[s_pushConstants.linearSamplerSrtID], norm).rgb;
     float3 diffuseibl = irradiance * albedo;
 
-    // ---- Specular IBL -----------------------------------------------------------------------------------------------
+    // ---- Specular IBL ---------------------------------------------------------------------------------------------------------------------------------------
     float nv = max(dot(norm, viewdir), 0.0f);
     float3 r = reflect(-viewdir, norm);
     float horizon = clamp(1.0f + 1.5f * dot(r, geometricNorm), 0.0f, 1.0f);
@@ -203,3 +326,5 @@ float3 main(VSOut input) : SV_Target {
 
     return color;
 }
+//    float viewPosZ = s_pushConstants.globalData.cameraNear / depth;
+//    float3 viewPos = float3(ndc * viewPosZ / float2(s_pushConstants.globalData.jitteredProjview._11, s_pushConstants.globalData.jitteredProjview._22), viewPosZ);

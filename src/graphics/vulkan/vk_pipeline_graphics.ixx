@@ -134,6 +134,19 @@ public:
         m_renderingCreateInfo.depthAttachmentFormat = format;
         return *this;
     }
+    [[nodiscard]] constexpr auto enableDepthBias() noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_rasterizationState.depthBiasEnable = true;
+        m_rasterizationState.depthBiasClamp = 0.0f;
+        return *this;
+    }
+    [[nodiscard]] constexpr auto setDepthBiasConstantFactor(f32 factor) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_rasterizationState.depthBiasConstantFactor = factor;
+        return *this;
+    }
+    [[nodiscard]] constexpr auto setDepthBiasSlopeFactor(f32 factor) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_rasterizationState.depthBiasSlopeFactor = factor;
+        return *this;
+    }
     [[nodiscard]] constexpr auto setMultiviewViewsMask(u32 mask) noexcept -> VulkanGraphicsPipelineBuilder& {
         m_renderingCreateInfo.viewMask = mask;
         return *this;
