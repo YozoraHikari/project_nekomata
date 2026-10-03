@@ -1,8 +1,8 @@
 import "../globallayout";
 
 struct PushConstants {
-    uint envmapTextureSrtID;
-    uint envmapSamplerSrtID;
+    ShHandle<TextureCube> envmapTexture;
+    ShHandle<SamplerState> envmapSampler;
     float roughness;
     float cubeResolution;
 };
@@ -83,7 +83,7 @@ float4 main(VSOut input, uint viewid : SV_ViewID) : SV_Target {
     float3 n = computeEnvDirection(viewid, input.positionCS.xy);
     const uint samples = 4096u;
 
-    if (s_pushConstants.roughness < 0.001f) return float4(s_texturesCube[s_pushConstants.envmapTextureSrtID].Sample(s_samplers[s_pushConstants.envmapSamplerSrtID], n).rgb, 1.0);
+    if (s_pushConstants.roughness < 0.001f) return float4(s_pushConstants.envmapTexture.load().Sample(s_pushConstants.envmapSampler.load(), n).rgb, 1.0);
 
     float2 rot = float2(
         hash1d(input.positionCS.x * 12.9898 + input.positionCS.y * 78.233),
@@ -107,7 +107,7 @@ float4 main(VSOut input, uint viewid : SV_ViewID) : SV_Target {
 
             float mip = max(s_pushConstants.roughness < 0.01f ? 0.0f : 0.75f * log2(sample / texel), 0.0f);
 
-            accum += s_texturesCube[s_pushConstants.envmapTextureSrtID].SampleLevel(s_samplers[s_pushConstants.envmapSamplerSrtID], l, mip).rgb * nl;
+            accum += s_pushConstants.envmapTexture.load().SampleLevel(s_pushConstants.envmapSampler.load(), l, mip).rgb * nl;
             weight += nl;
         }
     }

@@ -1,8 +1,8 @@
 import "../globallayout";
 
 struct PushConstants {
-    uint envmapTextureSrtID;
-    uint envmapSamplerSrtID;
+    ShHandle<TextureCube> envmapTexture;
+    ShHandle<SamplerState> envmapSampler;
     float cubeResolution;
 };
 
@@ -77,7 +77,7 @@ float4 main(VSOut input, uint viewid : SV_ViewID) : SV_Target {
         float2 xi = hammersleySeq(i, samples);
         float3 sampleTangent = getHemisphereSampleDirection(xi);
         float3 sampleDirection = sampleTangent.x * tgx + sampleTangent.y * tgy + sampleTangent.z * n;
-        irradiance += s_texturesCube[s_pushConstants.envmapTextureSrtID].Sample(s_samplers[s_pushConstants.envmapSamplerSrtID], sampleDirection).rgb;
+        irradiance += s_pushConstants.envmapTexture.load().Sample(s_pushConstants.envmapSampler.load(), sampleDirection).rgb;
     }
 
     let finalIrradiance = irradiance / float(samples);

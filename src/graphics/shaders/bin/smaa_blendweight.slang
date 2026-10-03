@@ -2,18 +2,18 @@ import "../globallayout";
 
 struct PushConstants {
     float4 rtMetrics;
-    uint edgesTextureSrtID;
-    uint areaTextureSrtID;
-    uint searchTextureSrtID;
-    uint smaaLinearSamplerSrtID;
-    uint smaaNearestSamplerSrtID;
+    ShHandle<Texture2D> edgesTexture;
+    ShHandle<Texture2D> areaTexture;
+    ShHandle<Texture2D> searchTexture;
+    ShHandle<SamplerState> smaaLinearSampler;
+    ShHandle<SamplerState> smaaNearestSampler;
     uint frameIndex;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
 
-#define LinearSampler pipeline::getSamplerBySrtId(s_pushConstants.smaaLinearSamplerSrtID)
-#define PointSampler pipeline::getSamplerBySrtId(s_pushConstants.smaaNearestSamplerSrtID)
+#define LinearSampler s_pushConstants.smaaLinearSampler.load()
+#define PointSampler s_pushConstants.smaaNearestSampler.load()
 #define SMAA_RT_METRICS s_pushConstants.rtMetrics
 #include "../smaa/smaa_incl.h"
 
@@ -43,9 +43,9 @@ float4 main(VSOut input) : SV_Target {
     let subsampleIndices = ((s_pushConstants.frameIndex & 1) == 0) ? float4(1.0f, 1.0f, 1.0f, 0.0f) : float4(2.0f, 2.0f, 2.0f, 0.0f);
     return SMAABlendingWeightCalculationPS(
         input.uv, input.pixcoord, input.offsets,
-        pipeline::getTexture2DBySrtId(s_pushConstants.edgesTextureSrtID),
-        pipeline::getTexture2DBySrtId(s_pushConstants.areaTextureSrtID),
-        pipeline::getTexture2DBySrtId(s_pushConstants.searchTextureSrtID),
+        s_pushConstants.edgesTexture.load(),
+        s_pushConstants.areaTexture.load(),
+        s_pushConstants.searchTexture.load(),
         subsampleIndices
     );
 }

@@ -7,7 +7,7 @@ struct Pointlight {
 
     float inverseRangeSq;
 
-    uint shadowmapAtlasImageSrtIndices[6];
+    ShHandle<Texture2D> shadowmapAtlasImageHandles[6];
     uint shadowmapDescriptorIndexFirst;
 };
 
@@ -21,7 +21,7 @@ struct Spotlight {
     float inverseRangeSq;
     float inverseAngleRange;
 
-    uint shadowmapAtlasImageSrtIndex;
+    ShHandle<Texture2D> shadowmapAtlasImageHandle;
     uint shadowmapDescriptorIndex;
 };
 
@@ -43,8 +43,8 @@ float lightAttenuationSpotlightCone(float3 l, float3 lightDir, float lightCosOut
     return smoothstep(0.0f, 1.0f, t);
 }
 
-float lightAttenuationSpotlightShadow(float3 fragpos, uint shadowmapAtlasImageSrtIndex, uint shadowmapDescriptorIndex) {
-    if (shadowmapAtlasImageSrtIndex == ~0u) return 1.0f;
+float lightAttenuationSpotlightShadow(float3 fragpos, ShHandle<Texture2D> shadowmapAtlasImage, uint shadowmapDescriptorIndex) {
+    if (shadowmapAtlasImage.srtIndex == ~0u) return 1.0f;
 
     let shadowmapDesc = s_pushConstants.shadowmapDescriptors[shadowmapDescriptorIndex];
     let lightNdcPos = mul(shadowmapDesc.lightProjview, float4(fragpos, 1.0f));
@@ -57,13 +57,13 @@ float lightAttenuationSpotlightShadow(float3 fragpos, uint shadowmapAtlasImageSr
 
     let shadowmapTexcoord = shadowmapDesc.atlasOffset + shadowmapDesc.atlasRectSize * tileTexcoord;
 
-    let shadowmapDepth = s_textures2D[shadowmapAtlasImageSrtIndex].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], shadowmapTexcoord, 0.0f).r;
+    let shadowmapDepth = shadowmapAtlasImage.load().SampleLevel(s_pushConstants.linearSampler.load(), shadowmapTexcoord, 0.0f).r;
 
     return lightNdcPosNz <= shadowmapDepth ? 0.0f : 1.0f;
 }
 
 float lightAttenuationPointlightShadow(float3 l, float3 fragpos, in Pointlight light) {
-    if (light.shadowmapAtlasImageSrtIndices[0] == ~0u) return 1.0f;
+    if (light.shadowmapAtlasImageHandles[0].srtIndex == ~0u) return 1.0f;
 
     float3 a = abs(l);
 
@@ -75,7 +75,7 @@ float lightAttenuationPointlightShadow(float3 l, float3 fragpos, in Pointlight l
 
     uint cubeFace = 2 * cubeAxis + cubeDirection;
 
-    let imageSrtIndex = light.shadowmapAtlasImageSrtIndices[cubeFace];
+    let shadowmapAtlasImage = light.shadowmapAtlasImageHandles[cubeFace];
     let shadowmapDescriptor = s_pushConstants.shadowmapDescriptors[light.shadowmapDescriptorIndexFirst + cubeFace];
 
     let lightNdcPos = mul(shadowmapDescriptor.lightProjview, float4(fragpos, 1.0f));
@@ -85,7 +85,7 @@ float lightAttenuationPointlightShadow(float3 l, float3 fragpos, in Pointlight l
     if (tileTexcoord.x < 0.0f || tileTexcoord.x > 1.0f || tileTexcoord.y < 0.0f || tileTexcoord.y > 1.0f) return 1.0f;
 
     let shadowmapTexcoord = shadowmapDescriptor.atlasOffset + shadowmapDescriptor.atlasRectSize * tileTexcoord;
-    let shadowmapDepth = s_textures2D[NonUniformResourceIndex(imageSrtIndex)].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], shadowmapTexcoord, 0.0f).r;
+    let shadowmapDepth = shadowmapAtlasImage.loadNonUniform().SampleLevel(s_pushConstants.linearSampler.load(), shadowmapTexcoord, 0.0f).r;
 
     return lightNdcPosN.z <= shadowmapDepth ? 0.0f : 1.0f;
 }
@@ -97,17 +97,17 @@ struct PushConstants {
     Spotlight* spotlights;
     uint spotlightCount;
     ShadowmapDescriptor* shadowmapDescriptors;
-    uint depthTextureSrtID;
-    uint albedoAndRoughnessTextureSrtID;
-    uint emissiveTextureSrtID;
-    uint normalTextureSrtID;
-    uint metallicAoTextureSrtID;
-    uint skyboxTextureSrtID;
-    uint irradianceTextureSrtID;
-    uint prefiltTextureSrtID;
-    uint iblLutTextureSrtID;
-    uint linearSamplerSrtID;
-    uint nearestSamplerSrtID;
+    ShHandle<Texture2D> depthTexture;
+    ShHandle<Texture2D> albedoAndRoughnessTexture;
+    ShHandle<Texture2D> emissiveTexture;
+    ShHandle<Texture2D> normalTexture;
+    ShHandle<Texture2D> metallicAoTexture;
+    ShHandle<TextureCube> skyboxTexture;
+    ShHandle<TextureCube> irradianceTexture;
+    ShHandle<TextureCube> prefiltTexture;
+    ShHandle<Texture2D> iblLutTexture;
+    ShHandle<SamplerState> linearSampler;
+    ShHandle<SamplerState> nearestSampler;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
@@ -261,7 +261,7 @@ float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm
         float attenuationCone = lightAttenuationSpotlightCone(l, light.direction, light.cosOuterAngle, light.inverseAngleRange);
         if (attenuationCone < 1e-4) continue;
 
-        float attenuationShadow = lightAttenuationSpotlightShadow(fragmentPosWSBiased, light.shadowmapAtlasImageSrtIndex, light.shadowmapDescriptorIndex);
+        float attenuationShadow = lightAttenuationSpotlightShadow(fragmentPosWSBiased, light.shadowmapAtlasImageHandle, light.shadowmapDescriptorIndex);
         if (attenuationShadow < 1e-4) continue;
 
         float3 radiance = attenuationCone * attenuationDist * light.lightRadiance * attenuationShadow;
@@ -270,7 +270,7 @@ float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm
     }
 
     // ---- Diffuse IBL ----------------------------------------------------------------------------------------------------------------------------------------
-    float3 irradiance = s_texturesCube[s_pushConstants.irradianceTextureSrtID].Sample(s_samplers[s_pushConstants.linearSamplerSrtID], norm).rgb;
+    float3 irradiance = s_pushConstants.irradianceTexture.load().Sample(s_pushConstants.linearSampler.load(), norm).rgb;
     float3 diffuseibl = irradiance * albedo;
 
     // ---- Specular IBL ---------------------------------------------------------------------------------------------------------------------------------------
@@ -279,8 +279,8 @@ float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm
     float horizon = clamp(1.0f + 1.5f * dot(r, geometricNorm), 0.0f, 1.0f);
     float hbsoOcclusion = horizon * horizon;
 
-    float3 prefiltered = s_texturesCube[s_pushConstants.prefiltTextureSrtID].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], r, roughness * roughnessMaxLod).rgb;
-    float2 envbrdf = s_textures2D[s_pushConstants.iblLutTextureSrtID].Sample(s_samplers[s_pushConstants.linearSamplerSrtID], float2(nv, roughness)).rg;
+    float3 prefiltered = s_pushConstants.prefiltTexture.load().SampleLevel(s_pushConstants.linearSampler.load(), r, roughness * roughnessMaxLod).rgb;
+    float2 envbrdf = s_pushConstants.iblLutTexture.load().Sample(s_pushConstants.linearSampler.load(), float2(nv, roughness)).rg;
 
     float3 f0 = lerp(float3(0.04), albedo, metallic);
     float3 fibl = fresnelSchlickRoughnessApprox(nv, f0, roughness);
@@ -295,11 +295,11 @@ float3 computePixelColor(float3 fragmentPosWS, float3 norm, float3 geometricNorm
 
 [shader("fragment")]
 float3 main(VSOut input) : SV_Target {
-    let depth = s_textures2D[s_pushConstants.depthTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).r;
-    let albedoAndRoughness = s_textures2D[s_pushConstants.albedoAndRoughnessTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0);
-    let emissive = s_textures2D[s_pushConstants.emissiveTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).xyz;
-    let pn = s_textures2D[s_pushConstants.normalTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0);
-    let metallicAo = s_textures2D[s_pushConstants.metallicAoTextureSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).xy;
+    let depth = s_pushConstants.depthTexture.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0).r;
+    let albedoAndRoughness = s_pushConstants.albedoAndRoughnessTexture.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0);
+    let emissive = s_pushConstants.emissiveTexture.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0).xyz;
+    let pn = s_pushConstants.normalTexture.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0);
+    let metallicAo = s_pushConstants.metallicAoTexture.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0).xy;
 
     const float ev = -2.0f;
     const float exposure = pow(2.0f, ev);
@@ -309,7 +309,7 @@ float3 main(VSOut input) : SV_Target {
     float3 vddy = ddy(viewdir);
 
     if (depth == 0.0) {
-        float3 col = s_texturesCube[s_pushConstants.skyboxTextureSrtID].SampleGrad(s_samplers[s_pushConstants.linearSamplerSrtID], viewdir, vddx, vddy).rgb * exposure;
+        float3 col = s_pushConstants.skyboxTexture.load().SampleGrad(s_pushConstants.linearSampler.load(), viewdir, vddx, vddy).rgb * exposure;
         return col;
     }
 

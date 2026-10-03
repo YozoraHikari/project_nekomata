@@ -36,8 +36,8 @@ struct PushConstants {
     Vertex* vertexbuffer;
     projnekomata::ShGlobalData* globalData;
     MaterialProps* materialProps;
-    uint* srtTableSampledImages;
-    uint* srtTableSamplers;
+    ShHandle<Texture2D>* srtTableSampledImages;
+    ShHandle<SamplerState>* srtTableSamplers;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
@@ -111,12 +111,10 @@ float4 loadColorFromConstOrTex(float4 colorOrTex, float2 texcoord, bool isTex) {
 }
 
 Texture2D<float4> resolveTexture2DHandle(uint handle) {
-    let texImageSrtID = s_pushConstants.srtTableSampledImages[handle];
-    return s_textures2D[texImageSrtID];
+    return s_pushConstants.srtTableSampledImages[handle].load();
 }
 SamplerState resolveSamplerHandle(uint handle) {
-    let samplerSrtID = s_pushConstants.srtTableSamplers[handle];
-    return s_samplers[samplerSrtID];
+    return s_pushConstants.srtTableSamplers[handle].load();
 }
 
 [earlydepthstencil]

@@ -2,16 +2,16 @@ import "../globallayout";
 
 struct PushConstants {
     float2 resolution;
-    uint smallerMipSampledImageSrtID;
-    uint linearSamplerSrtID;
-    uint dstMipStorageImageSrtID;
+    ShHandle<Texture2D> smallerMipSampledImage;
+    ShHandle<SamplerState> linearSampler;
+    ShHandle<RWTexture2D<float4>> dstMipStorageImage;
     float filterRadius;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
 
 float3 sampleTap(float2 texcoord, float2 offset) {
-    return s_textures2D[s_pushConstants.smallerMipSampledImageSrtID].SampleLevel(s_samplers[s_pushConstants.linearSamplerSrtID], texcoord + offset, 0).rgb;
+    return s_pushConstants.smallerMipSampledImage.load().SampleLevel(s_pushConstants.linearSampler.load(), texcoord + offset, 0).rgb;
 }
 
 [shader("compute")]
@@ -34,12 +34,12 @@ void main(uint3 dtid : SV_DispatchThreadID) {
     float3 m21 = sampleTap(texcoord, float2( 0.0f,    radius));
     float3 m22 = sampleTap(texcoord, float2( radius,  radius));
 
-    float3 previous = s_images2D_f32x4[s_pushConstants.dstMipStorageImageSrtID].Load(dtid.xy).rgb;
+    float3 previous = s_pushConstants.dstMipStorageImage.load().Load(dtid.xy).rgb;
     float3 upsampled = previous
         + m11 * 4.0f
         + (m01 + m10 + m12 + m21) * 2.0f
         + (m00 + m02 + m20 + m22);
     upsampled /= 16.0f;
 
-    s_images2D_f32x4[s_pushConstants.dstMipStorageImageSrtID].Store(dtid.xy, float4(upsampled, 1.0f));
+    s_pushConstants.dstMipStorageImage.load().Store(dtid.xy, float4(upsampled, 1.0f));
 }

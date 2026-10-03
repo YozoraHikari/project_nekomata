@@ -5,14 +5,14 @@ struct GlyphInstance {
     float2 sspEnd;
     float2 texcoordStart;
     float2 texcoordEnd;
-    uint textureSrtID;
+    ShHandle<Texture2D> texture;
 };
 
 struct PushConstants {
     GlyphInstance* glyphs;
     float2 ssGlobalOffset;
     float2 screenSize;
-    uint samplerSrtID;
+    ShHandle<SamplerState> sampler;
     float4 color;
 };
 
@@ -21,7 +21,7 @@ struct PushConstants {
 struct VSOut {
     float4 position : SV_Position;
     float2 texcoord : TEXCOORD;
-    nointerpolation uint textureSrtID;
+    nointerpolation ShHandle<Texture2D> texture;
 };
 
 [shader("vertex")]
@@ -38,12 +38,12 @@ VSOut main(uint vertexId : SV_VulkanVertexID, uint instanceId : SV_VulkanInstanc
     VSOut output;
     output.position = float4(lerp(ndcStart, ndcEnd, baseTexcoord), 0.0, 1.0);
     output.texcoord = lerp(glyph.texcoordStart, glyph.texcoordEnd, baseTexcoord);
-    output.textureSrtID = glyph.textureSrtID;
+    output.texture = glyph.texture;
     return output;
 }
 
 [shader("fragment")]
 float4 main(VSOut input) : SV_Target {
-    float alpha = s_textures2D[NonUniformResourceIndex(input.textureSrtID)].SampleLevel(s_samplers[s_pushConstants.samplerSrtID], input.texcoord, 0.0).r;
+    float alpha = input.texture.load().SampleLevel(s_pushConstants.sampler.load(), input.texcoord, 0.0).r;
     return float4(s_pushConstants.color.rgb, s_pushConstants.color.a * alpha);
 }

@@ -3,9 +3,9 @@ import "../globallayout";
 struct PushConstants {
     float2 resolution;
     float2 texelSize;
-    uint srcTextureSrtID;
-    uint linearSamplerSrtID;
-    uint dstStorageImageSrtID;
+    ShHandle<Texture2D> srcTexture;
+    ShHandle<SamplerState> linearSampler;
+    ShHandle<RWTexture2D<float4>> dstStorageImage;
     uint isFirstMip;
 };
 
@@ -24,7 +24,7 @@ float3 karisAverage(float3 c0, float3 c1, float3 c2, float3 c3) {
 }
 
 float3 sampleTap(float2 texcoord, float2 offset) {
-    return s_textures2D[pushConstants.srcTextureSrtID].SampleLevel(s_samplers[pushConstants.linearSamplerSrtID], texcoord + offset * pushConstants.texelSize, 0).rgb;
+    return pushConstants.srcTexture.load().SampleLevel(pushConstants.linearSampler.load(), texcoord + offset * pushConstants.texelSize, 0).rgb;
 }
 
 [shader("compute")]
@@ -70,5 +70,5 @@ void main(uint3 dtid : SV_DispatchThreadID) {
 
     result = max(result, 0.0001f);
 
-    s_images2D_f32x4[pushConstants.dstStorageImageSrtID].Store(pixelcoord, float4(result, 1.0f));
+    pushConstants.dstStorageImage.load().Store(pixelcoord, float4(result, 1.0f));
 }

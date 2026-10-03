@@ -1,7 +1,7 @@
 import "../globallayout";
 
 struct PushConstants {
-    uint quadOverdrawImageSrtID;
+    ShHandle<RWTexture2D<uint>> quadOverdrawImage;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
@@ -50,7 +50,7 @@ float3 PlasmaPalette(uint value, uint maxValue)
 float4 main(VSOut input) : SV_Target {
     float2 pixelpos = input.position.xy - 0.5f;
     uint2 quadpos = uint2(floor(pixelpos / 2.0f));
-    uint overdraw = s_images2D_u32[s_pushConstants.quadOverdrawImageSrtID].Load(quadpos).x;
+    uint overdraw = s_pushConstants.quadOverdrawImage.load().Load(quadpos);
 
     return float4(PlasmaPalette(overdraw, 32), 1.0f);
 }

@@ -6,8 +6,8 @@ struct PushConstants {
     float2 screenSize;
     float2 texcoordBegin;
     float2 texcoordEnd;
-    uint textureSrtID;
-    uint samplerSrtID;
+    ShHandle<Texture2D> texture;
+    ShHandle<SamplerState> sampler;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
@@ -32,5 +32,5 @@ VSOut main(uint vertexId : SV_VulkanVertexID) {
 
 [shader("fragment")]
 float4 main(VSOut input) : SV_Target {
-    return s_textures2D[s_pushConstants.textureSrtID].Sample(s_samplers[s_pushConstants.samplerSrtID], input.texcoord);
+    return s_pushConstants.texture.load().Sample(s_pushConstants.sampler.load(), input.texcoord);
 }

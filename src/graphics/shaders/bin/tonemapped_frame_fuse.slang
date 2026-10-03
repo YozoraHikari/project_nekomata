@@ -2,9 +2,9 @@ import "../globallayout";
 
 struct PushConstants {
     projnekomata::ShGlobalData* globalData;
-    uint nearestSamplerSrtID;
-    uint hdrColorBufferSrtID;
-    uint filteredBloomImageSrtID;
+    ShHandle<SamplerState> nearestSampler;
+    ShHandle<Texture2D> hdrColorBuffer;
+    ShHandle<Texture2D> filteredBloomImage;
     float bloomStrength;
 };
 
@@ -45,8 +45,8 @@ float interleavedGradientNoise(float2 svp) {
 
 [shader("fragment")]
 float4 main(VSOut input) : SV_Target {
-    let hdrSceneColor = s_textures2D[s_pushConstants.hdrColorBufferSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).rgb;
-    let filteredBloomColor = s_textures2D[s_pushConstants.filteredBloomImageSrtID].SampleLevel(s_samplers[s_pushConstants.nearestSamplerSrtID], input.texcoord, 0).rgb;
+    let hdrSceneColor = s_pushConstants.hdrColorBuffer.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0).rgb;
+    let filteredBloomColor = s_pushConstants.filteredBloomImage.load().SampleLevel(s_pushConstants.nearestSampler.load(), input.texcoord, 0).rgb;
 
     let fusedColor = lerp(hdrSceneColor, filteredBloomColor, s_pushConstants.bloomStrength);
 

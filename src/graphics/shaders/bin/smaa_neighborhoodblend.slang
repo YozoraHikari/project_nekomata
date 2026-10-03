@@ -2,17 +2,17 @@ import "../globallayout";
 
 struct PushConstants {
     float4 rtMetrics;
-    uint colorTextureSrtID;
-    uint blendTextureSrtID;
-    uint velocityTextureSrtID;
-    uint smaaLinearSamplerSrtID;
-    uint smaaNearestSamplerSrtID;
+    ShHandle<Texture2D> colorTexture;
+    ShHandle<Texture2D> blendTexture;
+    ShHandle<Texture2D> velocityTexture;
+    ShHandle<SamplerState> smaaLinearSampler;
+    ShHandle<SamplerState> smaaNearestSampler;
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
 
-#define LinearSampler pipeline::getSamplerBySrtId(s_pushConstants.smaaLinearSamplerSrtID)
-#define PointSampler pipeline::getSamplerBySrtId(s_pushConstants.smaaNearestSamplerSrtID)
+#define LinearSampler s_pushConstants.smaaLinearSampler.load()
+#define PointSampler s_pushConstants.smaaNearestSampler.load()
 #define SMAA_RT_METRICS s_pushConstants.rtMetrics
 #include "../smaa/smaa_incl.h"
 
@@ -40,8 +40,8 @@ VSOut main(uint vertexID : SV_VulkanVertexID) {
 float4 main(VSOut input) : SV_Target {
     return SMAANeighborhoodBlendingPS(
         input.uv, input.offset,
-        pipeline::getTexture2DBySrtId(s_pushConstants.colorTextureSrtID),
-        pipeline::getTexture2DBySrtId(s_pushConstants.blendTextureSrtID),
-        pipeline::getTexture2DBySrtId(s_pushConstants.velocityTextureSrtID)
+        s_pushConstants.colorTexture.load(),
+        s_pushConstants.blendTexture.load(),
+        s_pushConstants.velocityTexture.load()
     );
 }
