@@ -1,5 +1,3 @@
-module;
-#include <tracy/Tracy.hpp>
 module projnekomata;
 import fmt;
 import projnekomata.corelib;

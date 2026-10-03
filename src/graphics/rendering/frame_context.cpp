@@ -1,6 +1,3 @@
-module;
-#include <string.h>
-#include <tracy/Tracy.hpp>
 module projnekomata;
 import projnekomata.corelib;
 import vulkan;
@@ -140,9 +137,9 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
 
     auto cameraViewMatrix = firstCameraTransform.m_transform.inverseRigid();
 
-    math::Vector2f renderingArea = Vector2f(static_cast<f32>(transientRenderingResources.postSmaaImage().extent().width), static_cast<f32>(transientRenderingResources.postSmaaImage().extent().height));
-
-    float aspectRatio = static_cast<float>(transientRenderingResources.postSmaaImage().extent().width) / static_cast<float>(transientRenderingResources.postSmaaImage().extent().height);
+    auto vkRenderingArea = vk::Extent2D{transientRenderingResources.postSmaaImage().extent().width, transientRenderingResources.postSmaaImage().extent().height};
+    auto renderingArea = Vector2f(static_cast<f32>(vkRenderingArea.width), static_cast<f32>(vkRenderingArea.height));
+    float aspectRatio = renderingArea.x() / renderingArea.y();
     float perspFocalLength = renderingArea.y() / (2.0f * std::tan(0.5f * degreesToRadians(firstCamera.fov)));
 
     m_frameRenderingResources.prepareBuffers(renderingData, sharedRenderingResources, firstCamera, firstCameraTransform, aspectRatio, perspFocalLength, renderingData.m_frameIndex);
@@ -226,7 +223,6 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
         barriers2.flush(m_frameRenderingResources.commandBuffer());
     }
 
-    auto vkRenderingArea = vk::Extent2D{transientRenderingResources.postSmaaImage().extent().width, transientRenderingResources.postSmaaImage().extent().height};
     auto viewport = vk::Viewport{}
         .setWidth(static_cast<f32>(vkRenderingArea.width))
         .setHeight(static_cast<f32>(vkRenderingArea.height))
@@ -1344,7 +1340,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     }
 
     {
-        ZoneScopedN("AntiLag Present Pace")
+        ZoneScopedN("AntiLag Present Pace");
         vkrhi::VulkanContext::get().antiLagPacePresent(renderingData.m_frameIndex, 0);
     }
     vk::Result presentResult;

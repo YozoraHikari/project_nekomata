@@ -2,7 +2,6 @@ import std;
 import fmt;
 import vulkan;
 import projnekomata;
-#include <cstdlib>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>

@@ -24,10 +24,16 @@ add_compile_options(
         -fno-trapping-math
         -ffp-contract=fast
         -fwrapv
+        -flto=thin
         $<$<CONFIG:DebugSanitize>:-fsanitize=address,undefined>
 )
 add_link_options(
         -fuse-ld=lld
+        -fenable-matrix
+        -flto=thin
+        -Wl,--thinlto-jobs=16
+        -Wl,--thinlto-cache-dir=${CMAKE_BINARY_DIR}/thinlto-cache
+        -Wl,--thinlto-cache-policy=cache_size=10%:cache_size_bytes=10g
         $<$<CONFIG:DebugSanitize>:-fsanitize=address,undefined>
 )
 
@@ -127,7 +133,7 @@ set(TRACY_ENABLE ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-        GIT_TAG        master
+        GIT_TAG        v0.14.1
         GIT_SHALLOW    TRUE
         SYSTEM
 )
@@ -290,6 +296,7 @@ endif()
 target_link_libraries(project_nekomata_Library PUBLIC TracyClient)
 target_compile_definitions(project_nekomata_Library PUBLIC TRACY_VK_USE_SYMBOL_TABLE)
 target_compile_definitions(project_nekomata_Library PRIVATE TRACY_ENABLE)
+target_precompile_headers(project_nekomata_Library PRIVATE ${CMAKE_SOURCE_DIR}/src/projnekomata_pch.hpp)
 
 target_compile_options(
         project_nekomata_Library PRIVATE

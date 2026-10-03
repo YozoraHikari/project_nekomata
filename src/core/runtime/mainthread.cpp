@@ -1,6 +1,5 @@
 module;
 #include <SDL3/SDL_events.h>
-#include <tracy/Tracy.hpp>
 module projnekomata;
 import vulkan;
 import fmt;
