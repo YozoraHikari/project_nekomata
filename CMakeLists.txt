@@ -296,7 +296,6 @@ endif()
 target_link_libraries(project_nekomata_Library PUBLIC TracyClient)
 target_compile_definitions(project_nekomata_Library PUBLIC TRACY_VK_USE_SYMBOL_TABLE)
 target_compile_definitions(project_nekomata_Library PRIVATE TRACY_ENABLE)
-target_precompile_headers(project_nekomata_Library PRIVATE ${CMAKE_SOURCE_DIR}/src/projnekomata_pch.hpp)
 
 target_compile_options(
         project_nekomata_Library PRIVATE

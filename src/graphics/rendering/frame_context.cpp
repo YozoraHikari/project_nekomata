@@ -1,3 +1,6 @@
+module;
+#include <tracy/Tracy.hpp>
+#include <string.h>
 module projnekomata;
 import projnekomata.corelib;
 import vulkan;
