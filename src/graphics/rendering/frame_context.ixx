@@ -14,20 +14,16 @@ struct FrameResult {
 };
 
 enum class FrameContextTimestampIndex {
-    BeforeGeometryPass,
-    AfterGeometryPass,
-    BeforeShadowsPass,
-    AfterShadowsPass,
-    BeforeLightingPass,
-    AfterLightingPass,
-    BeforeBloomFilter,
-    AfterBloomFilter,
-    BeforeTonemapFuse,
-    AfterTonemapFuse,
-    BeforeSmaa,
-    AfterSmaa,
-    BeforeUI,
-    AfterUI,
+    CbStart_MvClear,
+    MvClear_GeometryPass,
+    GeometryPass_ShadowsPass,
+    ShadowsPass_LightingPassAndBloom,
+    LightingPass_ColorAttOutput,
+    Bloom_ComputeShader,
+    LightingPassAndBloom_TonemapFuse,
+    TonemapFuse_Smaa,
+    Smaa_UI,
+    UI_CbFinish,
     CountDiscrim
 };
 

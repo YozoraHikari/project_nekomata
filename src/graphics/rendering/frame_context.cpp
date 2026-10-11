@@ -236,6 +236,10 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
 
     // ---- Velocity Buffer Clear ------------------------------------------------------------------------------------------------------------------------------
 
+    if (recordStatistics) {
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eNone, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::CbStart_MvClear));
+    }
+
     vkrhi::VulkanPipelineBarriers::builder()
         .insertImageMemoryBarrier(transientRenderingResources.velocityBuffer(),
             vk::ImageLayout::eUndefined, vk::PipelineStageFlagBits2::eFragmentShader, {},
@@ -318,7 +322,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     }
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeGeometryPass));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::MvClear_GeometryPass));
         if (supportsPipelineStatisticsQuery) cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0, {});
     }
 
@@ -437,12 +441,11 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     cb.endRendering();
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterGeometryPass));
-        if (supportsPipelineStatisticsQuery) cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0);
-
-        // TODO: rework the queries maybe a bit to not do this obnoxious thing?????
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeShadowsPass));
-        if (supportsPipelineStatisticsQuery) cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 1);
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::GeometryPass_ShadowsPass));
+        if (supportsPipelineStatisticsQuery) {
+            cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 0);
+            cb.beginQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 1);
+        }
     }
 
     // ---- Shadow Maps Stage ----------------------------------------------------------------------------------------------------------------------------------
@@ -546,7 +549,6 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     }
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterShadowsPass));
         if (supportsPipelineStatisticsQuery) cb.endQuery(m_pipelineStatisticsQueryPool.vkQueryPool(), 1);
     }
 
@@ -604,7 +606,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     }
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeLightingPass));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::ShadowsPass_LightingPassAndBloom));
     }
 
     u32 skyboxTextureId = renderingData.m_textureToImageShaderIndexSnapshot[sharedRenderingResources.m_skyCubemap.index];
@@ -680,8 +682,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     cb.endRendering();
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterLightingPass));
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeBloomFilter));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eColorAttachmentOutput, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::LightingPass_ColorAttOutput));
     }
 
     for (u32 i = 0; i < bloomReductionMipCount; i++) {
@@ -798,7 +799,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     }
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterBloomFilter));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eComputeShader, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::Bloom_ComputeShader));
     }
 
     // ---- Tonemapped Frame Fuse ------------------------------------------------------------------------------------------------------------------------------
@@ -815,7 +816,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
         .flush(m_frameRenderingResources.commandBuffer());
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeTonemapFuse));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::LightingPassAndBloom_TonemapFuse));
     }
 
     auto dstTonemappedFrameAttachmentInfo = vk::RenderingAttachmentInfo{}
@@ -857,9 +858,6 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
 
     cb.endRendering();
 
-    if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterTonemapFuse));
-    }
 
     // ---- SMAA -----------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -898,7 +896,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
         .flush(m_frameRenderingResources.commandBuffer());
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeSmaa));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::TonemapFuse_Smaa));
     }
 
     auto edgesImageAttachmentInfo = vk::RenderingAttachmentInfo{}
@@ -1122,9 +1120,6 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     cb.draw(3, 1, 0, 0);
     cb.endRendering();
 
-    if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterSmaa));
-    }
     // ---- Temporary : Quad Overdraw Vis ----------------------------------------------------------------------------------------------------------------------
 /*
     vkrhi::VulkanPipelineBarriers::builder()
@@ -1165,7 +1160,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
         .flush(m_frameRenderingResources.commandBuffer());
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::BeforeUI));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::Smaa_UI));
     }
 
     auto finalDrawBufferAttachmentInfo = vk::RenderingAttachmentInfo{}
@@ -1280,7 +1275,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     cb.endRendering();
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::AfterUI));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eAllCommands, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::UI_CbFinish));
     }
 
     vkrhi::VulkanPipelineBarriers::builder()

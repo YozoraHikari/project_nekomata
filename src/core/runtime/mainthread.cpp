@@ -212,22 +212,24 @@ auto MainThread::loop(float dt) -> void {
         if (m_mrSharedData->m_queryPoolStatsAreValid) {
             auto& queryTimestamps = m_mrSharedData->m_queryTimestamps;
             auto& pipelineStats = m_mrSharedData->m_queryPipelineStats;
-            auto geomPassTime = (queryTimestamps.afterGeometryPass - queryTimestamps.beforeGeometryPass) * deviceTimestampPeriod / 1000000.0_f64;
-            auto shadowPassTime = (queryTimestamps.afterShadowsPass - queryTimestamps.beforeShadowsPass) * deviceTimestampPeriod / 1000000.0_f64;
-            auto lightingPassTime = (queryTimestamps.afterLightingPass - queryTimestamps.beforeLightingPass) * deviceTimestampPeriod / 1000000.0_f64;
-            auto bloomFilterTime = (queryTimestamps.afterBloomFilter - queryTimestamps.beforeBloomFilter) * deviceTimestampPeriod / 1000000.0_f64;
-            auto tonemapFuseTime = (queryTimestamps.afterTonemapFuse - queryTimestamps.beforeTonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
-            auto smaaTime = (queryTimestamps.afterSmaa - queryTimestamps.beforeSmaa) * deviceTimestampPeriod / 1000000.0_f64;
-            auto uiTime = (queryTimestamps.afterUI - queryTimestamps.beforeUI) * deviceTimestampPeriod / 1000000.0_f64;
+            auto mvClearTime = (queryTimestamps.mvClear_GeometryPass - queryTimestamps.cbStart_MvClear) * deviceTimestampPeriod / 1000000.0_f64;
+            auto geomPassTime = (queryTimestamps.geometryPass_ShadowsPass - queryTimestamps.mvClear_GeometryPass) * deviceTimestampPeriod / 1000000.0_f64;
+            auto shadowPassTime = (queryTimestamps.shadowsPass_LightingPassAndBloom - queryTimestamps.geometryPass_ShadowsPass) * deviceTimestampPeriod / 1000000.0_f64;
+            auto lightingPassTime = (queryTimestamps.lightingPass_ColorAttOutput - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
+            auto bloomFilterTime = (queryTimestamps.bloom_ComputeShader - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
+            auto tonemapFuseTime = (queryTimestamps.tonemapFuse_Smaa - queryTimestamps.lightingPassAndBloom_TonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
+            auto smaaTime = (queryTimestamps.smaa_UI - queryTimestamps.tonemapFuse_Smaa) * deviceTimestampPeriod / 1000000.0_f64;
+            auto uiTime = (queryTimestamps.ui_CbFinish - queryTimestamps.smaa_UI) * deviceTimestampPeriod / 1000000.0_f64;
 
             if (supportsPipelineStatisticsQuery) {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {} #FS: {}\n ShadowPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms",
+                queryStats = fmt::format("\n MvClear: {:.3f} ms\n GeomPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {} #FS: {}\n ShadowPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms",
+                    mvClearTime,
                     geomPassTime, m_mrSharedData->m_numDrawcalls, pipelineStats.deferredGeometryStage.vsInvocationCount, pipelineStats.deferredGeometryStage.tcsInvocationCount, pipelineStats.deferredGeometryStage.tesInvocationCount, pipelineStats.deferredGeometryStage.fsInvocationCount,
                     shadowPassTime, m_mrSharedData->m_numDrawcallsShadows, pipelineStats.shadowPassStage.vsInvocationCount, pipelineStats.shadowPassStage.tcsInvocationCount, pipelineStats.shadowPassStage.tesInvocationCount,
                     lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime
                 );
             } else {
-                queryStats = fmt::format("\n GeomPass: {:.3f} ms\n ShadowPass: {:.3f} ms\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", geomPassTime, shadowPassTime, lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
+                queryStats = fmt::format("\n MvClear: {:.3f} ms\n GeomPass: {:.3f} ms\n ShadowPass: {:.3f} ms\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms", mvClearTime, geomPassTime, shadowPassTime, lightingPassTime, bloomFilterTime, tonemapFuseTime, smaaTime, uiTime);
             }
         }
 

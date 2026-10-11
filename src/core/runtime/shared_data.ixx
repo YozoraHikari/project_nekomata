@@ -47,20 +47,16 @@ struct MRThreadsSharedDataLeaf {
 };
 
 struct QueryTimestamps {
-    u64 beforeGeometryPass;
-    u64 afterGeometryPass;
-    u64 beforeShadowsPass;
-    u64 afterShadowsPass;
-    u64 beforeLightingPass;
-    u64 afterLightingPass;
-    u64 beforeBloomFilter;
-    u64 afterBloomFilter;
-    u64 beforeTonemapFuse;
-    u64 afterTonemapFuse;
-    u64 beforeSmaa;
-    u64 afterSmaa;
-    u64 beforeUI;
-    u64 afterUI;
+    u64 cbStart_MvClear;
+    u64 mvClear_GeometryPass;
+    u64 geometryPass_ShadowsPass;
+    u64 shadowsPass_LightingPassAndBloom;
+    u64 lightingPass_ColorAttOutput;
+    u64 bloom_ComputeShader;
+    u64 lightingPassAndBloom_TonemapFuse;
+    u64 tonemapFuse_Smaa;
+    u64 smaa_UI;
+    u64 ui_CbFinish;
 };
 
 struct PipelineStats {
