@@ -44,7 +44,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ----------------------------------------------------------------------------------------------------------------------
 #     Dependencies
 
-find_package(VulkanHeaders REQUIRED)
+find_package(VulkanHeaders REQUIRED CONFIG)
 find_package(SDL3 REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(utf8cpp REQUIRED)
@@ -73,8 +73,8 @@ endif()
 
 FetchContent_Declare(
         vmahpp
-        URL      https://github.com/YaaZ/VulkanMemoryAllocator-Hpp/releases/download/v3.3.0+3/VulkanMemoryAllocator-Hpp-3.3.0.tar.gz
-        URL_HASH SHA256=8c2a0573babe1f86f3241d12b4c9df40bb944649b7f4239c1c611797f8af6cd5
+        URL      https://github.com/YaaZ/VulkanMemoryAllocator-Hpp/releases/download/v3.4.0+2/VulkanMemoryAllocator-Hpp-3.4.0.tar.gz
+        URL_HASH SHA256=588e4aa20898dedca99e72d1bfa428303d3076102108884b8b6a178195404bc9
         SYSTEM
 )
 set(VMA_STATIC_VULKAN_FUNCTIONS OFF CACHE BOOL "" FORCE)
@@ -111,6 +111,10 @@ set(CMAKE_SKIP_INSTALL_RULES OFF)
 
 # workaround for compiler errors from KTX
 set(CMAKE_CXX_STANDARD 20)
+
+set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_LOADTEST_APPS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
         ktx
         GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
@@ -121,8 +125,6 @@ FetchContent_Declare(
 )
 
 set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "" FORCE)
-set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
-set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(ktx)
 
@@ -182,6 +184,15 @@ set_target_properties(VulkanModule PROPERTIES
         CXX_SCAN_FOR_MODULES ON
         CXX_MODULE_STD ON
 )
+
+add_library(VulkanVmaModule STATIC)
+target_compile_definitions(
+        VulkanVmaModule PUBLIC
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=0
+)
+target_link_libraries(VulkanVmaModule PRIVATE VulkanModule)
+target_sources(VulkanVmaModule PUBLIC FILE_SET CXX_MODULES FILES ${vmahpp_SOURCE_DIR}/vk_mem_alloc.cppm)
 
 # ----------------------------------------------------------------------------------------------------------------------
 #     Slang Setup
@@ -277,7 +288,7 @@ target_link_libraries(
         PRIVATE
         ${TCMALLOC_LIB}
         VulkanModule
-        VulkanMemoryAllocator-Hpp::VulkanMemoryAllocator-Hpp
+        VulkanVmaModule
         Freetype::Freetype
         SDL3::SDL3
         ktx
