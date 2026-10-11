@@ -4,6 +4,7 @@ import projnekomata.corelib;
 export import :core.ecs.component_pool;
 export import :core.ecs.entity;
 export import :core.ecs.script_base;
+import :core.ecs.world.parent;
 
 export namespace projnekomata::ecs {
 
@@ -59,7 +60,7 @@ public:
         return components<T>().emplace(e, std::forward<Args>(args)...);
     }
 
-    template <typename T> void remove(Entity e) { components<T>().remove(e); }
+    template <typename T> void remove(Entity e) { components<T>().removeForEntity(e); }
 
     template <typename T> bool has(Entity e) {
         auto vect = m_components.get(std::type_index(typeid(T)));
@@ -125,6 +126,22 @@ public:
             if (auto* cast = dynamic_cast<ScriptType*>(s.ptr()))
                 return cast;
         return nullptr;
+    }
+
+    auto addChildForEntity(Entity parent, Entity child) -> void {
+        always_assert(!has<ParentComponent>(parent), "child entity already has parent");
+        if (!has<ChildrenComponent>(parent)) emplace<ChildrenComponent>(parent);
+        get<ChildrenComponent>(parent).m_children.emplace(child);
+        emplace<ParentComponent>(child, parent);
+    }
+
+    auto removeChildForEntity(Entity parent, Entity child) -> void {
+        always_assert(has<ParentComponent>(child), "child entity has no parent");
+        always_assert(has<ChildrenComponent>(parent), "parent entity has no children");
+        auto childListIndex = get<ChildrenComponent>(parent).m_children.iter().position([child](auto& c) { return c == child; });
+        always_assert(childListIndex.isSome(), "child entity is not a child of parent entity");
+        get<ChildrenComponent>(parent).m_children.swapRemove(childListIndex.unwrap());
+        remove<ParentComponent>(child);
     }
 
     void scriptsUpdate(float dt) {

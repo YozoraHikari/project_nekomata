@@ -539,6 +539,7 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
     world->addScript<SpinningCubesScript>(parentOfTheMoreFuckedCubes);
 
     auto stuff2 = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_textured_complex_uastc.gltf", mainMaterialShader, Some(parentOfTheMoreFuckedCubes));
+    world->addChildForEntity(parentOfTheMoreFuckedCubes, parentOfTheFuckedCubes);
 }
 
 int main(int argc, char* argv[]) {

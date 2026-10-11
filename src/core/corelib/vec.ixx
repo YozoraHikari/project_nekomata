@@ -248,6 +248,15 @@ public:
         return Some(std::move(elem));
     }
 
+    constexpr auto swapRemove(usize i) -> T {
+        always_assert(i < m_len, "index out of bounds");
+        auto elem = std::move(m_data[i]);
+        m_data[i] = std::move(m_data[m_len - 1]);
+        m_len--;
+        if constexpr (kNeedsFinalizer) m_data[m_len].~T();
+        return elem;
+    }
+
     constexpr auto clear() {
         if (m_len == 0) return;
         destroyFinalize();

@@ -334,6 +334,15 @@ public:
         return prod;
     }
 
+    template <typename F> constexpr auto position(F&& f) -> Option<usize> requires TypedInvocable<F, bool, IntoLambdaByRefT<typename Derived::Item>> {
+        usize i = 0;
+        while (auto v = self().next()) {
+            if (f(intoLambdaByRef(v.unwrap()))) return Some(i);
+            i++;
+        }
+        return None;
+    }
+
     template <typename P> constexpr auto all(P&& pred) -> bool requires TypedInvocable<P, bool, IntoLambdaByRefT<typename Derived::Item>> {
         while (auto v = self().next()) {
             if (!pred(intoLambdaByRef(v.unwrap()))) return false;
