@@ -44,6 +44,6 @@ VSOut main(uint vertexId : SV_VulkanVertexID, uint instanceId : SV_VulkanInstanc
 
 [shader("fragment")]
 float4 main(VSOut input) : SV_Target {
-    float alpha = input.texture.load().SampleLevel(s_pushConstants.sampler.load(), input.texcoord, 0.0).r;
+    float alpha = input.texture.loadNonUniform().SampleLevel(s_pushConstants.sampler.load(), input.texcoord, 0.0).r;
     return float4(s_pushConstants.color.rgb, s_pushConstants.color.a * alpha);
 }
