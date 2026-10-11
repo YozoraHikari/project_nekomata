@@ -237,7 +237,7 @@ auto FrameContext::execute(RenderingResources& transientRenderingResources, Shar
     // ---- Velocity Buffer Clear ------------------------------------------------------------------------------------------------------------------------------
 
     if (recordStatistics) {
-        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eNone, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::CbStart_MvClear));
+        cb.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, m_timestampsQueryPool.vkQueryPool(), static_cast<u32>(FrameContextTimestampIndex::CbStart_MvClear));
     }
 
     vkrhi::VulkanPipelineBarriers::builder()
