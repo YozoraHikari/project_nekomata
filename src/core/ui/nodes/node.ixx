@@ -32,8 +32,7 @@ enum class InvalidateLayoutReason {
 };
 
 struct UiMouseHitRegion {
-    math::Vector2f position;
-    math::Vector2f extent;
+    math::Aabb2f rect;
     UINode* ref;
 
     bool capturesClicks = false;

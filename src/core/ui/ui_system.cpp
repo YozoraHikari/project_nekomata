@@ -70,12 +70,8 @@ auto UiSystem::buildUi(Vec<ui::UiDrawCmd>& drawcmds, gfx::DynamicBitmapFontAtlas
 
 auto UiSystem::testMouseDownHit(math::Vector2f pos) -> void {
     m_focusedElement = nullptr;
-    for (auto& [position, extent, ref, capturesClicks, _, _, _] : m_lastFrameMouseHitRegions.iterRev()) {
-        // todo: Make a math box/aabb type to do this
-        if (position.x() <= pos.x() && pos.x() <= position.x() + extent.x()
-            && position.y() <= pos.y() && pos.y() <= position.y() + extent.y()
-            && capturesClicks)
-        {
+    for (auto& [rect, ref, capturesClicks, _, _, _] : m_lastFrameMouseHitRegions.iterRev()) {
+        if (rect.contains(pos) && capturesClicks) {
             log::info("Focused Element is now 0x{:016x} <<{}>>", reinterpret_cast<usize>(ref), typeid(*ref).name());
             m_pressedElement = ref;
             m_focusedElement = ref;
@@ -83,11 +79,10 @@ auto UiSystem::testMouseDownHit(math::Vector2f pos) -> void {
     }
 }
 auto UiSystem::testMouseUpHit(math::Vector2f pos) -> void {
-    for (auto& [position, extent, ref, capturesClicks, _, clickCallback, _] : m_lastFrameMouseHitRegions.iterRev()) {
+    for (auto& [rect, ref, capturesClicks, _, clickCallback, _] : m_lastFrameMouseHitRegions.iterRev()) {
         if (
             ref == m_pressedElement
-             && position.x() <= pos.x() && pos.x() <= position.x() + extent.x()
-             && position.y() <= pos.y() && pos.y() <= position.y() + extent.y()
+             && rect.contains(pos)
              && capturesClicks
              && clickCallback.isSome()
         ) {
@@ -99,10 +94,9 @@ auto UiSystem::testMouseUpHit(math::Vector2f pos) -> void {
 }
 auto UiSystem::testMouseHover(math::Vector2f pos) -> void {
     m_hoveredElement = nullptr;
-    for (auto& [position, extent, ref, _, capturesHover, _, hoverCallback] : m_lastFrameMouseHitRegions.iterRev()) {
+    for (auto& [rect, ref, _, capturesHover, _, hoverCallback] : m_lastFrameMouseHitRegions.iterRev()) {
         if (
-            position.x() <= pos.x() && pos.x() <= position.x() + extent.x()
-            && position.y() <= pos.y() && pos.y() <= position.y() + extent.y()
+            rect.contains(pos)
             && capturesHover
         ) {
             m_hoveredElement = ref;

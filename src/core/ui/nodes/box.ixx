@@ -47,7 +47,8 @@ public:
 
         for (auto i = hitregionsLenBefore; i < ctx.mouseHitRegions.len(); i++) {
             auto& hitregion = ctx.mouseHitRegions[i];
-            hitregion.position += offset;
+            hitregion.rect.min() += offset;
+            hitregion.rect.max() += offset;
         }
 
         if (ctx.textInputCtx.dstText != textInputPtrBefore) {

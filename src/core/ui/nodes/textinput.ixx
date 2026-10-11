@@ -49,8 +49,7 @@ public:
         }
 
         ctx.mouseHitRegions.emplace(UiMouseHitRegion{
-            .position = bounds.min(),
-            .extent = bounds.extents(),
+            .rect = bounds,
             .ref = static_cast<UINode*>(this),
             .capturesClicks = true,
             .capturesHover = true,

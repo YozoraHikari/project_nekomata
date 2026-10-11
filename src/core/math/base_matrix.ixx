@@ -57,6 +57,9 @@ public:
         return fill(T(1));
     }
 
+    constexpr auto operator[](usize r) -> T& requires (C == 1)  { return mself(r, 0); }
+    constexpr auto operator[](usize r) const -> const T& requires (C == 1)  { return mself(r, 0); }
+
     constexpr auto operator[](usize r, usize c) const -> const T& { return mself(r, c); }
     constexpr auto operator[](usize r, usize c)       ->       T& { return mself(r, c); }
 
