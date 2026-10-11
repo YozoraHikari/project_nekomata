@@ -118,7 +118,7 @@ set(KTX_FEATURE_LOADTEST_APPS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
         ktx
         GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
-        GIT_TAG        v5.0.0-rc1
+        GIT_TAG        v5.0.0-rc2
         GIT_SHALLOW    TRUE
         GIT_SUBMODULES ""
         SYSTEM
