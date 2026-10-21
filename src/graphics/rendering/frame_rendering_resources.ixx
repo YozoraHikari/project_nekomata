@@ -14,8 +14,8 @@ import :graphics.rendering.shared_rendering_resources;
 export namespace projnekomata::gfx {
 
 struct Transforms {
-    Matrix4x4f model;
-    Matrix4x4f prevModel;
+    Matrix3x4f model;
+    Matrix3x4f prevModel;
     Matrix3x3f normalMatrix;
 };
 

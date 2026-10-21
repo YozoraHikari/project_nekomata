@@ -151,9 +151,9 @@ auto FrameContextData::prepareBuffers(MRThreadsSharedDataLeaf& renderingData, Sh
         }
         auto entSparseIndex = renderingData.m_renderables.m_storageToEntity[i];
 
-        auto modelMatrix = math::Matrix4x4f::identity();
+        auto modelMatrix = math::Matrix4x4f::identity().submatrix<3, 4>(0, 0);
         if (renderingData.m_transforms.containsEntity(entSparseIndex)) {
-            modelMatrix = renderingData.m_transforms.get(entSparseIndex).m_transform;
+            modelMatrix = renderingData.m_transforms.get(entSparseIndex).m_transform.submatrix<3, 4>(0, 0);
         }
 
         auto normalMatrix = modelMatrix
@@ -404,11 +404,7 @@ auto FrameContextData::computeLodLevels(MRThreadsSharedDataLeaf& renderingData, 
         if (renderingData.m_transforms.containsEntity(entity)) {
             auto& transformMatrix = renderingData.m_transforms.get(entity).m_transform;
             objectPos = transformMatrix.decomposePosition();
-
-            float sx = Vector3f(transformMatrix[0, 0], transformMatrix[1, 0], transformMatrix[2, 0]).length();
-            float sy = Vector3f(transformMatrix[0, 1], transformMatrix[1, 1], transformMatrix[2, 1]).length();
-            float sz = Vector3f(transformMatrix[0, 2], transformMatrix[1, 2], transformMatrix[2, 2]).length();
-            objectUniformScale = std::max({sx, sy, sz});
+            objectUniformScale = transformMatrix.decomposeScale().max();
         }
 
         float screenPixels = lodList.computeScreenSpaceError(objectPos, cameraPos, cameraPerspFocalLength, objectUniformScale);

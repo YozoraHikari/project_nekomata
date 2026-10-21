@@ -1,8 +1,8 @@
 import "../globallayout";
 
 struct ObjectUniforms {
-    float4x4 model;
-    float4x4 prevModel;
+    float3x4 model;
+    float3x4 prevModel;
     float3x3 normalMatrix;
 };
 
@@ -29,15 +29,18 @@ struct PushConstants {
 
 [vk::push_constant] PushConstants s_pushConstants;
 
+struct VSIn {
+    [[vk::location(0)]] float3 position;
+};
+
 struct VSOut {
     float4 position : SV_Position;
 };
 
 [shader("vertex")]
-VSOut main(uint vertexID : SV_VulkanVertexID) {
-    float3 position = s_pushConstants.vertexbuffer[vertexID].position;
-
-    float4 worldspacePos = mul(s_pushConstants.data.model, float4(position, 1.0));
+VSOut main(VSIn input) {
+    float4 pos = float4(input.position, 1.0f);
+    float4 worldspacePos = float4(mul(s_pushConstants.data.model, pos), 1.0f);
 
     VSOut output;
     output.position = mul(s_pushConstants.lightShadowRenderingDescriptor.lightProjview, worldspacePos);

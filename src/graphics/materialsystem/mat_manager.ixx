@@ -4,6 +4,7 @@ import projnekomata.corelib;
 import :graphics.vulkan.vk_pipeline_layout;
 import :core.containers.freelist_pool;
 import :graphics.vulkan.vk_pipeline_graphics;
+import :core.vertex;
 
 export namespace projnekomata::gfx {
 
@@ -169,6 +170,8 @@ private:
 
     constexpr MaterialShaderBuilder() {
         auto& _ = m_vkGraphicsPipelineBuilder
+            .setVertexFetchBindings(kVertexBindingsAll)
+            .setVertexFetchAttributes(kVertexAttributesAll)
             .setPipelineLayout(MaterialManager::get().globalPipelineLayout())
             .setInputTopology(vk::PrimitiveTopology::eTriangleList)
             .setRastPolygonMode(vk::PolygonMode::eFill)

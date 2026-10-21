@@ -16,7 +16,7 @@ auto MeshAssetStorage::makeMeshPoolConfig() -> MeshPoolConfig {
     return poolConfig;
 }
 
-MeshAssetStorage::MeshAssetStorage() : m_meshPool(makeMeshPoolConfig()), m_lodLists(VaSlotmap<LodList, 131072>::create()) {}
+MeshAssetStorage::MeshAssetStorage() : m_meshStorage(MeshStorage::create()), m_lodLists(VaSlotmap<LodList, 131072>::create()) {}
 
 auto MeshAssetStorage::create() -> Unique<MeshAssetStorage> {
     debug_assert(g_meshAssetStorage == nullptr, "only one MeshAssetStorage may live at any given time");
@@ -34,11 +34,16 @@ auto MeshAssetStorage::freeMeshAsset(MeshAsset asset) -> void {
     m_lodLists.free(asset.storageIndex);
 }
 
-auto MeshAssetStorage::perpareLodSpace(MeshAsset asset, u32 lodIndex, usize vertexBufferSize, usize indexBufferSize, usize vertexBufferAlignment, usize indexBufferAlignment) -> void {
-    getLodList(asset).lods[lodIndex].meshSuballocation = m_meshPool.allocateMesh(vertexBufferSize, indexBufferSize, vertexBufferAlignment, indexBufferAlignment);
+auto MeshAssetStorage::prepareLodSpace(MeshAsset asset, u32 lodIndex,
+    u64 vertexPositionsCount, u64 vertexAttributesBufferSize, u64 indexBufferSize
+) -> void {
+    getLodList(asset).lods[lodIndex].meshSuballocation = m_meshStorage.allocateSpaceForMesh(
+        vertexPositionsCount, vertexAttributesBufferSize, indexBufferSize
+    );
 }
+// TODO: remove
 auto MeshAssetStorage::tickGC(u64 currentFrameIndex) -> void {
-    m_meshPool.tickGC(currentFrameIndex);
+    //m_meshPool.tickGC(currentFrameIndex);
 }
 
 } // namespace projnekomata::meshsystem

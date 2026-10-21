@@ -34,7 +34,7 @@ public:
 
     auto waitForLastFrame() -> void;
 
-    [[nodiscard]] auto execute(RenderingResources& transientRenderingResources, SharedRenderingData& sharedRenderingResources,
+    [[nodiscard]] auto execute(RenderingResources& renderingResources, SharedRenderingData& sharedRenderingData,
         vkrhi::VulkanSwapchain& swapchain, MRThreadsSharedDataLeaf& renderingData, MRThreadsSharedData& threadSharedData, bool recordStatistics) -> FrameResult;
 
     // ---------------------------------------------------------------------------------------------------------------------------------------------------------

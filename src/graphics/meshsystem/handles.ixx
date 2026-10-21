@@ -3,6 +3,7 @@ import projnekomata.corelib;
 import std;
 import :graphics.meshsystem.pool.mesh_pool;
 import :core.math;
+import :graphics.meshsystem.mesh_storage;
 
 
 export namespace projnekomata {
@@ -15,7 +16,7 @@ struct MeshAsset {
 
 // todo: RAII semantics (refcounting)
 struct Lod {
-    gfx::MeshSuballocation meshSuballocation = {};
+    gfx::MeshStorageAllocation meshSuballocation = {};
     float screenSizeThreshold = 0.0f;
 };
 

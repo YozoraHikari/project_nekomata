@@ -67,6 +67,22 @@ public:
         m_pipelineLayout = layout.vkPipelineLayout();
         return *this;
     }
+    [[nodiscard]] constexpr auto setVertexFetchBindings(const vk::VertexInputBindingDescription& binding) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_vertexInputStateCreateInfo.setVertexBindingDescriptions(binding);
+        return *this;
+    }
+    [[nodiscard]] constexpr auto setVertexFetchBindings(Slice<const vk::VertexInputBindingDescription> bindings) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_vertexInputStateCreateInfo.setVertexBindingDescriptions(bindings);
+        return *this;
+    }
+    [[nodiscard]] constexpr auto setVertexFetchAttributes(const vk::VertexInputAttributeDescription& attribute) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_vertexInputStateCreateInfo.setVertexAttributeDescriptions(attribute);
+        return *this;
+    }
+    [[nodiscard]] constexpr auto setVertexFetchAttributes(Slice<const vk::VertexInputAttributeDescription> attributes) noexcept -> VulkanGraphicsPipelineBuilder& {
+        m_vertexInputStateCreateInfo.setVertexAttributeDescriptions(attributes);
+        return *this;
+    }
     [[nodiscard]] constexpr auto setInputTopology(vk::PrimitiveTopology topology) noexcept -> VulkanGraphicsPipelineBuilder& {
         m_inputAssemblyState.topology = topology;
         return *this;
@@ -179,8 +195,6 @@ public:
             .setViewportCount(1)
             .setScissorCount(1);
 
-        auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
-        
         auto colorBlendState = vk::PipelineColorBlendStateCreateInfo{}
             .setLogicOpEnable(false)
             .setAttachments(m_renderingColorAttachmentBlendStates);
@@ -197,7 +211,7 @@ public:
 
         auto pipelineInfo = vk::GraphicsPipelineCreateInfo{}
             .setStages(stagesRaw)
-            .setPVertexInputState(&vertexInputState)
+            .setPVertexInputState(&m_vertexInputStateCreateInfo)
             .setPInputAssemblyState(&m_inputAssemblyState)
             .setPViewportState(&viewportState)
             .setPRasterizationState(&m_rasterizationState)
@@ -278,6 +292,7 @@ private:
     vk::PipelineLayout m_pipelineLayout = nullptr;
     Option<vk::RenderingAttachmentLocationInfo> m_renderingAttachmentLocationInfo = None;
     Option<vk::RenderingInputAttachmentIndexInfo> m_renderingInputAttachmentIndexInfo = None;
+    vk::PipelineVertexInputStateCreateInfo m_vertexInputStateCreateInfo = {};
     vk::PipelineInputAssemblyStateCreateInfo m_inputAssemblyState = {};
     vk::PipelineRasterizationStateCreateInfo m_rasterizationState = {};
     vk::PipelineMultisampleStateCreateInfo m_multisampleState = {};

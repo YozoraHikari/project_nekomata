@@ -43,7 +43,7 @@ public:
 
     auto checkGraphicsSettingsAndMaybeRecompileShaders() -> void;
     auto refitHysteresisStates(usize renderableSparseCount) -> void;
-    auto getLastRenderableModelMatrix(usize renderableSparseIndex) -> math::Matrix4x4f& { return m_lastRenderableModelMatrices[renderableSparseIndex]; }
+    auto getLastRenderableModelMatrix(usize renderableSparseIndex) -> math::Matrix3x4f& { return m_lastRenderableModelMatrices[renderableSparseIndex]; }
     auto shadowmapAtlases() -> Vec<ShadowMapAtlas>& { return m_shadowMapAtlases; }
     auto shadowmapAtlasRenderingJobsPerAtlas() -> Vec<Vec<ShadowRenderingJob>>& { return m_shadowRenderingJobsPerAtlas; }
 
@@ -124,7 +124,7 @@ private:
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Objects History
-    Vec<math::Matrix4x4f> m_lastRenderableModelMatrices = Vec<math::Matrix4x4f>::create();
+    Vec<math::Matrix3x4f> m_lastRenderableModelMatrices = Vec<math::Matrix3x4f>::create();
 
     // --------------------------------------------------------------------------------------------------------------------------------------------------------
     // Shadow Mapping Data

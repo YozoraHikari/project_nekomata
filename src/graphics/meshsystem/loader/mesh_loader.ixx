@@ -139,12 +139,13 @@ auto importSceneFromGltf(ecs::World& dstWorld, const fs::Path& path, const Mater
             if (pos == primitive.attributes.end()) continue;
 
             auto& posAccessor = asset.accessors[pos->accessorIndex];
+            auto positions = Vec<Vector3f>::uninitialized(posAccessor.count);
             auto vertices = Vec<Vertex>::uninitialized(posAccessor.count);
 
             auto boundingSphereRadiusSq = 0.0_f32;
             fastgltf::iterateAccessorWithIndex<math::Vector3f>(asset, posAccessor, [&](auto val, auto idx) {
                 auto yUpRHToYUpLH = Vector3f(val.x(), val.y(), -val.z());
-                vertices[idx].position = yUpRHToYUpLH; boundingSphereRadiusSq = std::max(boundingSphereRadiusSq, val.lengthSquared());
+                positions[idx] = yUpRHToYUpLH; boundingSphereRadiusSq = std::max(boundingSphereRadiusSq, val.lengthSquared());
             });
 
             bool hasNorm = false;
@@ -193,8 +194,8 @@ auto importSceneFromGltf(ecs::World& dstWorld, const fs::Path& path, const Mater
 
                 for (auto i = 0_usize; i < indices.len(); i += 3) {
                     auto i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
-                    auto e10 = vertices[i1].position - vertices[i0].position;
-                    auto e20 = vertices[i2].position - vertices[i0].position;
+                    auto e10 = positions[i1] - positions[i0];
+                    auto e20 = positions[i2] - positions[i0];
                     auto normal = e10.cross(e20);
 
                     vertices[i0].normal += normal;
@@ -215,11 +216,16 @@ auto importSceneFromGltf(ecs::World& dstWorld, const fs::Path& path, const Mater
             lodlist.boundingSphereRadius = std::sqrt(boundingSphereRadiusSq);
             lodlist.lodHysteresisFactor = 1.0f;
 
+            auto& mas = MeshAssetStorage::get();
+            auto positionsBufferAddr = mas.meshStorage().positionsVertexBuffer().underlyingBuffer().memoryHostPtr();
+            auto attributesBufferAddr = mas.meshStorage().attributesVertexBuffer().underlyingBuffer().memoryHostPtr();
+            auto indicesBufferAddr = mas.meshStorage().indexBuffer().underlyingBuffer().memoryHostPtr();
             auto& lod = lodlist.lods[0];
             lod.screenSizeThreshold = 0.0f;
-            MeshAssetStorage::get().perpareLodSpace(mesh, 0, vertices.len() * sizeof(Vertex), indices.len() * sizeof(u32), alignof(Vertex), 4);
-            memcpy(lod.meshSuballocation.vertexBuffer.hostAddress, vertices.data(), vertices.len() * sizeof(Vertex));
-            memcpy(lod.meshSuballocation.indexBuffer.hostAddress, indices.data(), indices.len() * sizeof(u32));
+            mas.prepareLodSpace(mesh, 0, positions.len(), vertices.len() * sizeof(Vertex), indices.len() * sizeof(u32));
+            memcpy(positionsBufferAddr + lod.meshSuballocation.vertexPositions.byteOffset, positions.data(), positions.len() * sizeof(Vector3f));
+            memcpy(attributesBufferAddr + lod.meshSuballocation.vertexAttributes.byteOffset, vertices.data(), vertices.len() * sizeof(Vertex));
+            memcpy(indicesBufferAddr + lod.meshSuballocation.indices.byteOffset, indices.data(), indices.len() * sizeof(u32));
 
             lodlist.bestLodIndex.store(0, std::memory_order_release);
             result.meshes.emplace(mesh);

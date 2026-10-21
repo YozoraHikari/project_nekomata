@@ -336,6 +336,8 @@ SharedRenderingData::SharedRenderingData() {
     auto lightShadowRenderingShader = vkrhi::SpirvShaderCode::loadFromFile("//spirv:/mainrender_geom_shadow.spv").unwrap();
     m_lightShadowRenderingPipeline = vkrhi::VulkanGraphicsPipeline::builder()
         .setPipelineLayout(m_lightShadowRenderingPipelineLayout)
+        .setVertexFetchBindings(kVertexBindingsPositionOnly)
+        .setVertexFetchAttributes(kVertexAttributesPositionOnly)
         .addShader(lightShadowRenderingShader, vk::ShaderStageFlagBits::eVertex)
         .setInputTopology(vk::PrimitiveTopology::eTriangleList)
         .setRastCulling(vk::CullModeFlagBits::eBack, vk::FrontFace::eCounterClockwise)
@@ -362,7 +364,7 @@ auto SharedRenderingData::checkGraphicsSettingsAndMaybeRecompileShaders() -> voi
 
 auto SharedRenderingData::refitHysteresisStates(usize renderableSparseCount) -> void {
     if (m_lastRenderableModelMatrices.len() < renderableSparseCount) {
-        m_lastRenderableModelMatrices.resize(renderableSparseCount, Matrix4x4f::identity());
+        m_lastRenderableModelMatrices.resize(renderableSparseCount, Matrix4x4f::identity().submatrix<3, 4>(0, 0));
     }
 }
 

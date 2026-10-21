@@ -212,14 +212,15 @@ auto MainThread::loop(float dt) -> void {
         if (m_mrSharedData->m_queryPoolStatsAreValid) {
             auto& queryTimestamps = m_mrSharedData->m_queryTimestamps;
             auto& pipelineStats = m_mrSharedData->m_queryPipelineStats;
-            auto mvClearTime = (queryTimestamps.mvClear_GeometryPass - queryTimestamps.cbStart_MvClear) * deviceTimestampPeriod / 1000000.0_f64;
-            auto geomPassTime = (queryTimestamps.geometryPass_ShadowsPass - queryTimestamps.mvClear_GeometryPass) * deviceTimestampPeriod / 1000000.0_f64;
-            auto shadowPassTime = (queryTimestamps.shadowsPass_LightingPassAndBloom - queryTimestamps.geometryPass_ShadowsPass) * deviceTimestampPeriod / 1000000.0_f64;
-            auto lightingPassTime = (queryTimestamps.lightingPass_ColorAttOutput - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
-            auto bloomFilterTime = (queryTimestamps.bloom_ComputeShader - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
-            auto tonemapFuseTime = (queryTimestamps.tonemapFuse_Smaa - queryTimestamps.lightingPassAndBloom_TonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
-            auto smaaTime = (queryTimestamps.smaa_UI - queryTimestamps.tonemapFuse_Smaa) * deviceTimestampPeriod / 1000000.0_f64;
-            auto uiTime = (queryTimestamps.ui_CbFinish - queryTimestamps.smaa_UI) * deviceTimestampPeriod / 1000000.0_f64;
+            auto mvClearTime       = (queryTimestamps.mvClear_GeometryPass             - queryTimestamps.cbStart_MvClear)                  * deviceTimestampPeriod / 1000000.0_f64;
+            auto geomPassTime      = (queryTimestamps.geometryPass_ShadowsPass         - queryTimestamps.mvClear_GeometryPass)             * deviceTimestampPeriod / 1000000.0_f64;
+            auto shadowPassTime    = (queryTimestamps.shadowsPass_LightingPassAndBloom - queryTimestamps.geometryPass_ShadowsPass)         * deviceTimestampPeriod / 1000000.0_f64;
+            auto lightingPassTime  = (queryTimestamps.lightingPass_ColorAttOutput      - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
+            auto bloomFilterTime   = (queryTimestamps.bloom_ComputeShader              - queryTimestamps.shadowsPass_LightingPassAndBloom) * deviceTimestampPeriod / 1000000.0_f64;
+            auto tonemapFuseTime   = (queryTimestamps.tonemapFuse_Smaa                 - queryTimestamps.lightingPassAndBloom_TonemapFuse) * deviceTimestampPeriod / 1000000.0_f64;
+            auto smaaTime          = (queryTimestamps.smaa_UI                          - queryTimestamps.tonemapFuse_Smaa)                 * deviceTimestampPeriod / 1000000.0_f64;
+            auto uiTime            = (queryTimestamps.ui_CbFinish                      - queryTimestamps.smaa_UI)                          * deviceTimestampPeriod / 1000000.0_f64;
+
 
             if (supportsPipelineStatisticsQuery) {
                 queryStats = fmt::format("\n MvClear: {:.3f} ms\n GeomPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {} #FS: {}\n ShadowPass: {:.3f} ms #DC: {} #VS: {} #TCS: {} #TES: {}\n LightingPass: {:.3f} ms\n BloomFilter: {:.3f} ms\n TonemapFuse: {:.3f} ms\n SMAA: {:.3f} ms\n UI: {:.3f} ms",
@@ -256,7 +257,7 @@ auto MainThread::loop(float dt) -> void {
                 " FPS: {:.2f} ({:.3f}ms)\n\n"
                 " -SDL-\n Video Driver: {}\n\n"
                 " -Vulkan-\n Device: {}\n Driver: {} {}.{}.{}.{} API Version {}.{}.{}.{}\n VRAM: {}\n Shader Cache: {}\n Descriptor Binding Model: {}\n Anti-Lag: {}\n\n"
-                " -Stats-{}",
+                " -GPU Stats-{}",
             1000.0f / m_mrSharedData->m_deltaTime, m_mrSharedData->m_deltaTime,
             m_mrSharedData->m_sdlVideoDriverName,
             physicalDeviceProps.m_deviceName,

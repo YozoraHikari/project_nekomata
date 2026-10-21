@@ -2,17 +2,9 @@ import "../globallayout";
 import "../normalpack/normalpack";
 
 struct ObjectUniforms {
-    float4x4 model;
-    float4x4 prevModel;
+    float3x4 model;
+    float3x4 prevModel;
     float3x3 normalMatrix;
-};
-
-struct Vertex {
-    float3 position;
-    float3 normal;
-    float4 tangent;
-    float2 texcoord;
-    float4 color;
 };
 
 const static uint kFlagColorIsTex = 1 << 0;
@@ -30,10 +22,8 @@ struct MaterialProps {
     uint normalMapTex;
 };
 
-
 struct PushConstants {
     ObjectUniforms* data;
-    Vertex* vertexbuffer;
     projnekomata::ShGlobalData* globalData;
     MaterialProps* materialProps;
     ShHandle<Texture2D>* srtTableSampledImages;
@@ -41,6 +31,13 @@ struct PushConstants {
 };
 
 [vk::push_constant] PushConstants s_pushConstants;
+
+struct VSIn {
+    [[vk::location(0)]] float3 position;
+    [[vk::location(1)]] float3 normal;
+    [[vk::location(2)]] float4 tangent;
+    [[vk::location(3)]] float2 texcoord;
+}
 
 struct VSOut {
     float4 position : SV_Position;
@@ -53,25 +50,20 @@ struct VSOut {
 }
 
 [shader("vertex")]
-VSOut main(uint vertexID: SV_VulkanVertexID) {
-    float3 position = s_pushConstants.vertexbuffer[vertexID].position;
-    float3 normal = s_pushConstants.vertexbuffer[vertexID].normal;
-    float4 tangent = s_pushConstants.vertexbuffer[vertexID].tangent;
-    float2 texcoord = s_pushConstants.vertexbuffer[vertexID].texcoord;
-
-    float4 positionh = float4(position, 1.0f);
-
-    float4 currentWorldspacePos = mul(s_pushConstants.data.model, positionh);
-    float4 prevWorldspacePos = mul(s_pushConstants.data.prevModel, positionh);
+VSOut main(VSIn input) {
+    let data = *s_pushConstants.data;
+    float4 pos = float4(input.position, 1.0f);
+    float4 currentWorldspacePos = float4(mul(data.model, pos),     1.0f);
+    float4 prevWorldspacePos    = float4(mul(data.prevModel, pos), 1.0f);
 
     VSOut output;
     output.position = mul(s_pushConstants.globalData.jitteredProjview, currentWorldspacePos);
     output.mvCurrentPosition = mul(s_pushConstants.globalData.projview, currentWorldspacePos);
     output.mvPrevPosition = mul(s_pushConstants.globalData.prevProjview, prevWorldspacePos);
-    output.uv = texcoord;
-    output.normal = mul(s_pushConstants.data.normalMatrix, normal);
-    output.tangent = mul(float3x3(s_pushConstants.data.model), tangent.xyz);
-    output.tangentHandedness = tangent.w;
+    output.uv = input.texcoord;
+    output.normal = mul(data.normalMatrix, input.normal);
+    output.tangent = mul(float3x3(data.model), input.tangent.xyz);
+    output.tangentHandedness = input.tangent.w;
 
     return output;
 }

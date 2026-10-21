@@ -299,7 +299,7 @@ public:
 
         auto& transform = m_workingWorld->get<projnekomata::LocalTransformComponent>(m_workingEntity).m_transform3d;
         static_cast<projnekomata::ui::UIText*>(m_text)->text = fmt::format(
-            "position: x {} y {} z {}\nrotation: i {} j {} k {} w {}",
+            "{}, {}, {} :: {}, {}, {}, {}",
             transform.m_position.x(), transform.m_position.y(), transform.m_position.z(),
             transform.m_rotation.m_x, transform.m_rotation.m_y, transform.m_rotation.m_z, transform.m_rotation.m_w
         );
@@ -329,7 +329,8 @@ public:
     }
 };
 
-std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments, float radius) {
+std::tuple<Vec<Vector3f>, Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments, float radius) {
+    Vec<Vector3f> positions;
     Vec<Vertex> vertices;
     Vec<u32> indices;
 
@@ -352,7 +353,8 @@ std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments
             Vector3f tangent = Vector3f(-sinPhi, 0.0f, cosPhi).normalize();
             Vector4f handedTangent = Vector4f(tangent.x(), tangent.y(), tangent.z(), 1.0f);
 
-            vertices.emplace(Vector3f(x * radius, y * radius, z * radius), normal, handedTangent, texcoord, Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+            positions.emplace(Vector3f(x * radius, y * radius, z * radius));
+            vertices.emplace(normal, handedTangent, texcoord);
         }
     }
 
@@ -370,7 +372,7 @@ std::pair<Vec<Vertex>, Vec<u32>> generateSphere(u32 latSegments, u32 lonSegments
         }
     }
 
-    return {std::move(vertices), std::move(indices)};
+    return {std::move(positions), std::move(vertices), std::move(indices)};
 }
 
 void onGameInit(Unique<projnekomata::ecs::World>& world) {
@@ -401,35 +403,42 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
     mas.getLodList(mesh).maxLodIndex = 3; // set all LOD levels used
     // initially bestLodIndex = ~0 => no LODs are ready (rendering thread will skip rendering).
 
+    auto positionsBufferAddr = mas.meshStorage().positionsVertexBuffer().underlyingBuffer().memoryHostPtr();
+    auto attributesBufferAddr = mas.meshStorage().attributesVertexBuffer().underlyingBuffer().memoryHostPtr();
+    auto indicesBufferAddr = mas.meshStorage().indexBuffer().underlyingBuffer().memoryHostPtr();
     // LOD 3
-    auto [l3verts, l3inds] = generateSphere(10, 10, 1.0f);
-    mas.perpareLodSpace(mesh, 3, l3verts.size() * sizeof(Vertex), l3inds.size() * sizeof(u32), alignof(Vertex), 4);
-    memcpy(mas.getLodList(mesh).lods[3].meshSuballocation.vertexBuffer.hostAddress, l3verts.data(), l3verts.size() * sizeof(Vertex));
-    memcpy(mas.getLodList(mesh).lods[3].meshSuballocation.indexBuffer.hostAddress, l3inds.data(), l3inds.size() * sizeof(u32));
+    auto [l3pos, l3verts, l3inds] = generateSphere(10, 10, 1.0f);
+    mas.prepareLodSpace(mesh, 3, l3pos.size(), l3verts.size() * sizeof(Vertex), l3inds.size() * sizeof(u32));
+    memcpy(positionsBufferAddr + mas.getLodList(mesh).lods[3].meshSuballocation.vertexPositions.byteOffset, l3pos.data(), l3pos.size() * sizeof(Vector3f));
+    memcpy(attributesBufferAddr + mas.getLodList(mesh).lods[3].meshSuballocation.vertexAttributes.byteOffset, l3verts.data(), l3verts.size() * sizeof(Vertex));
+    memcpy(indicesBufferAddr + mas.getLodList(mesh).lods[3].meshSuballocation.indices.byteOffset, l3inds.data(), l3inds.size() * sizeof(u32));
     mas.getLodList(mesh).bestLodIndex.store(3, std::memory_order_release);
     mas.getLodList(mesh).lods[3].screenSizeThreshold = 8.0f;
 
     // LOD 2
-    auto [l2verts, l2inds] = generateSphere(16, 16, 1.0f);
-    mas.perpareLodSpace(mesh, 2, l2verts.size() * sizeof(Vertex), l2inds.size() * sizeof(u32), alignof(Vertex), 4);
-    memcpy(mas.getLodList(mesh).lods[2].meshSuballocation.vertexBuffer.hostAddress, l2verts.data(), l2verts.size() * sizeof(Vertex));
-    memcpy(mas.getLodList(mesh).lods[2].meshSuballocation.indexBuffer.hostAddress, l2inds.data(), l2inds.size() * sizeof(u32));
+    auto [l2pos, l2verts, l2inds] = generateSphere(16, 16, 1.0f);
+    mas.prepareLodSpace(mesh, 2, l2pos.size(), l2verts.size() * sizeof(Vertex), l2inds.size() * sizeof(u32));
+    memcpy(positionsBufferAddr + mas.getLodList(mesh).lods[2].meshSuballocation.vertexPositions.byteOffset, l2pos.data(), l2pos.size() * sizeof(Vector3f));
+    memcpy(attributesBufferAddr + mas.getLodList(mesh).lods[2].meshSuballocation.vertexAttributes.byteOffset, l2verts.data(), l2verts.size() * sizeof(Vertex));
+    memcpy(indicesBufferAddr + mas.getLodList(mesh).lods[2].meshSuballocation.indices.byteOffset, l2inds.data(), l2inds.size() * sizeof(u32));
     mas.getLodList(mesh).bestLodIndex.store(2, std::memory_order_release);
     mas.getLodList(mesh).lods[2].screenSizeThreshold = 20.0f;
 
     // LOD 1
-    auto [l1verts, l1inds] = generateSphere(30, 30, 1.0f);
-    mas.perpareLodSpace(mesh, 1, l1verts.size() * sizeof(Vertex), l1inds.size() * sizeof(u32), alignof(Vertex), 4);
-    memcpy(mas.getLodList(mesh).lods[1].meshSuballocation.vertexBuffer.hostAddress, l1verts.data(), l1verts.size() * sizeof(Vertex));
-    memcpy(mas.getLodList(mesh).lods[1].meshSuballocation.indexBuffer.hostAddress, l1inds.data(), l1inds.size() * sizeof(u32));
+    auto [l1pos, l1verts, l1inds] = generateSphere(30, 30, 1.0f);
+    mas.prepareLodSpace(mesh, 1, l1pos.size(), l1verts.size() * sizeof(Vertex), l1inds.size() * sizeof(u32));
+    memcpy(positionsBufferAddr + mas.getLodList(mesh).lods[1].meshSuballocation.vertexPositions.byteOffset, l1pos.data(), l1pos.size() * sizeof(Vector3f));
+    memcpy(attributesBufferAddr + mas.getLodList(mesh).lods[1].meshSuballocation.vertexAttributes.byteOffset, l1verts.data(), l1verts.size() * sizeof(Vertex));
+    memcpy(indicesBufferAddr + mas.getLodList(mesh).lods[1].meshSuballocation.indices.byteOffset, l1inds.data(), l1inds.size() * sizeof(u32));
     mas.getLodList(mesh).bestLodIndex.store(1, std::memory_order_release);
     mas.getLodList(mesh).lods[1].screenSizeThreshold = 80.0f;
 
     // LOD 0
-    auto [l0verts, l0inds] = generateSphere(100, 100, 1.0f);
-    mas.perpareLodSpace(mesh, 0, l0verts.size() * sizeof(Vertex), l0inds.size() * sizeof(u32), alignof(Vertex), 4);
-    memcpy(mas.getLodList(mesh).lods[0].meshSuballocation.vertexBuffer.hostAddress, l0verts.data(), l0verts.size() * sizeof(Vertex));
-    memcpy(mas.getLodList(mesh).lods[0].meshSuballocation.indexBuffer.hostAddress, l0inds.data(), l0inds.size() * sizeof(u32));
+    auto [l0pos, l0verts, l0inds] = generateSphere(100, 100, 1.0f);
+    mas.prepareLodSpace(mesh, 0, l0pos.size(), l0verts.size() * sizeof(Vertex), l0inds.size() * sizeof(u32));
+    memcpy(positionsBufferAddr + mas.getLodList(mesh).lods[0].meshSuballocation.vertexPositions.byteOffset, l0pos.data(), l0pos.size() * sizeof(Vector3f));
+    memcpy(attributesBufferAddr + mas.getLodList(mesh).lods[0].meshSuballocation.vertexAttributes.byteOffset, l0verts.data(), l0verts.size() * sizeof(Vertex));
+    memcpy(indicesBufferAddr + mas.getLodList(mesh).lods[0].meshSuballocation.indices.byteOffset, l0inds.data(), l0inds.size() * sizeof(u32));
     mas.getLodList(mesh).bestLodIndex.store(0, std::memory_order_release);
     mas.getLodList(mesh).lods[0].screenSizeThreshold = 200.0f;
 
@@ -540,6 +549,11 @@ void onGameInit(Unique<projnekomata::ecs::World>& world) {
 
     auto stuff2 = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/deccer-cubes-main/deccer_cubes_textured_complex_uastc.gltf", mainMaterialShader, Some(parentOfTheMoreFuckedCubes));
     world->addChildForEntity(parentOfTheMoreFuckedCubes, parentOfTheFuckedCubes);
+
+    auto parentOfAoTest = world->createEntity();
+    world->emplace<projnekomata::LocalTransformComponent>(parentOfAoTest, Vector3f(0.0f, -20.0f, 0.0f), Quaternion::identity(), Vector3f::one());
+    world->emplace<projnekomata::WorldTransformComponent>(parentOfAoTest);
+    auto stuff3 = projnekomata::gfx::importSceneFromGltf(*world, "//assets:/aotest.glb", mainMaterialShader, Some(parentOfAoTest));
 }
 
 int main(int argc, char* argv[]) {

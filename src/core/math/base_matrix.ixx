@@ -113,8 +113,8 @@ public:
         return result;
     }
 
-    constexpr auto transpose() const -> Matrix {
-        return Matrix(__builtin_matrix_transpose(loadLlvmMatrix()));
+    constexpr auto transpose() const -> Matrix<T, C, R> {
+        return Matrix<T, C, R>(__builtin_matrix_transpose(loadLlvmMatrix()));
     }
 
     constexpr auto x() const -> const T& { return mself(0, 0); }
@@ -139,6 +139,29 @@ public:
             for (usize c = 0; c < C; c++)
                 prod *= mself(r, c);
         return prod;
+    }
+
+    constexpr auto min() const -> T {
+        T mi = mself(0, 0);
+        for (usize r = 0; r < R; r++) {
+            for (usize c = 0; c < C; c++) {
+                if (r == 0 && c == 0) continue;
+                T t = mself(r, c);
+                if (mi > t) mi = t;
+            }
+        }
+        return mi;
+    }
+    constexpr auto max() const -> T {
+        T ma = mself(0, 0);
+        for (usize r = 0; r < R; r++) {
+            for (usize c = 0; c < C; c++) {
+                if (r == 0 && c == 0) continue;
+                T t = mself(r, c);
+                if (ma < t) ma = t;
+            }
+        }
+        return ma;
     }
 
     constexpr auto dot(const Matrix& other) const -> T requires (C == 1) {
@@ -177,6 +200,14 @@ public:
         return submatrix<3, 1>(0, 3);
     }
 
+    constexpr auto decomposeScale() const -> Matrix<T, 3, 1> requires (C == 4 && R == 4) {
+        return Matrix<T, 3, 1>(
+            submatrix<3, 1>(0, 0).length(),
+            submatrix<3, 1>(0, 1).length(),
+            submatrix<3, 1>(0, 2).length()
+        );
+    }
+
 
     [[nodiscard]] Option<Matrix> inverse() const requires (C == R && R <= 4) {
         if constexpr (R == 1) return invertMatrix1x1(*this);
@@ -192,7 +223,7 @@ public:
         Matrix<T, 3, 3> rotMat = submatrix<3, 3>(0, 0);
         Matrix<T, 3, 1> transl = submatrix<3, 1>(0, 3);
 
-        auto rotInverse = rotMat.transpose(); // for rotation matrices transposition is inversion
+        auto rotInverse = rotMat.transpose();
         auto translInverse = -rotInverse * transl;
 
         return {
@@ -231,16 +262,16 @@ private:
     using Storage = T[R * C];
     Storage m_data;
 
+    Matrix(Storage data) : m_data(data) {}
+    Matrix(LlvmMatrixType data) {
+        storeLlvmMatrix(data);
+    }
+
     constexpr auto loadLlvmMatrix() const -> LlvmMatrixType {
         return __builtin_matrix_column_major_load(m_data, R, C, R);
     }
     constexpr auto storeLlvmMatrix(LlvmMatrixType data) -> void {
         __builtin_matrix_column_major_store(data, m_data, R);
-    }
-
-    Matrix(Storage data) : m_data(data) {}
-    Matrix(LlvmMatrixType data) {
-        storeLlvmMatrix(data);
     }
 
     template <typename, usize, usize> friend class Matrix;

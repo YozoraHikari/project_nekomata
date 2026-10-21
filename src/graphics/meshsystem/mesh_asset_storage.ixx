@@ -5,6 +5,7 @@ import :graphics.meshsystem.pool.mesh_pool;
 import :core.containers.freelist_pool;
 import :core.math;
 import :graphics.meshsystem.handles;
+import :graphics.meshsystem.mesh_storage;
 
 export namespace projnekomata::gfx {
 class MeshAssetStorage;
@@ -23,15 +24,17 @@ public:
     auto allocateMeshAsset() -> MeshAsset;
     auto freeMeshAsset(MeshAsset asset) -> void;
 
+    auto meshStorage() -> MeshStorage& { return m_meshStorage; }
+
     auto getLodList(MeshAsset asset) -> LodList& { return m_lodLists[asset.storageIndex]; }
     auto getLodList(MeshAsset asset) const -> const LodList& { return m_lodLists[asset.storageIndex]; }
 
-    auto perpareLodSpace(MeshAsset asset, u32 lodIndex, usize vertexBufferSize, usize indexBufferSize, usize vertexBufferAlignment, usize indexBufferAlignment) -> void;
+    auto prepareLodSpace(MeshAsset asset, u32 lodIndex, u64 vertexPositionsCount, u64 vertexAttributesBufferSize, u64 indexBufferSize) -> void;
 
     auto tickGC(u64 currentFrameIndex) -> void;
 private:
 
-    MeshPool m_meshPool = nullptr;
+    MeshStorage m_meshStorage = nullptr;
     VaSlotmap<LodList, 131072> m_lodLists = nullptr;
 };
 
